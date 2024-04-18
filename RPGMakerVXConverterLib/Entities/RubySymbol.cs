@@ -9,18 +9,18 @@ public class RubySymbol : AbstractEntity
 
     public override RubyCodes Code { get; protected set; } = RubyCodes.Symbol;
 
-    public override void ReadData(RubyFile r)
+    public override void ReadData(BinaryReader r)
     {
         var len = r.ReadPackedInt();
 
-        Name = Encoding.UTF8.GetString(r.Reader.ReadBytes(len));
+        Name = Encoding.UTF8.GetString(r.ReadBytes(len));
     }
 
-    public override void WriteData(RubyFile f)
+    public override void WriteData(BinaryWriter w)
     {
         var bytes = Encoding.UTF8.GetBytes(Name);
         
-        f.WritePackedInt(bytes.Length);
-        f.Writer.Write(bytes);
+        w.WritePackedInt(bytes.Length);
+        w.Write(bytes);
     }
 }

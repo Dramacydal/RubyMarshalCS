@@ -9,12 +9,16 @@ public class RubyFloat : AbstractEntity
     public FloatType Type { get; set; }
     public float Value { get; set; }
 
+    public byte[] RawBytes;
+
     public override RubyCodes Code { get; protected set; } = RubyCodes.Float;
 
-    public override void ReadData(RubyFile r)
+    public override void ReadData(BinaryReader r)
     {
         var len = r.ReadPackedInt();
-        var bytes = r.Reader.ReadBytes(len).TakeWhile(_ => _ != 0).ToArray();
+        var rawBytes = r.ReadBytes(len);
+        RawBytes = rawBytes;
+        var bytes = rawBytes.TakeWhile(_ => _ != 0).ToArray();
         var str = Encoding.ASCII.GetString(bytes);
 
         Value = 0.0f;
@@ -37,26 +41,30 @@ public class RubyFloat : AbstractEntity
         }
     }
 
-    public override void WriteData(RubyFile f)
+    public override void WriteData(BinaryWriter w)
     {
+        // w.WritePackedInt(RawBytes.Length);
+        // w.Write(RawBytes);
+        // return;
+        
         switch (Type)
         {
             case FloatType.Normal:
                 var str = Value.ToString(CultureInfo.InvariantCulture);
-                f.Writer.Write(str.Length);
-                f.Writer.Write(Encoding.ASCII.GetBytes(str));
+                w.WritePackedInt(str.Length);
+                w.Write(Encoding.ASCII.GetBytes(str));
                 break;
             case FloatType.Inf:
-                f.Writer.Write((byte)3);
-                f.Writer.Write(Encoding.ASCII.GetBytes("inf"));
+                w.WritePackedInt(3);
+                w.Write(Encoding.ASCII.GetBytes("inf"));
                 break;
             case FloatType.NegInf:
-                f.Writer.Write((byte)4);
-                f.Writer.Write(Encoding.ASCII.GetBytes("-inf"));
+                w.WritePackedInt(4);
+                w.Write(Encoding.ASCII.GetBytes("-inf"));
                 break;
             case FloatType.NaN:
-                f.Writer.Write((byte)3);
-                f.Writer.Write(Encoding.ASCII.GetBytes("nan"));
+                w.WritePackedInt(3);
+                w.Write(Encoding.ASCII.GetBytes("nan"));
                 break;
         }
     }

@@ -1,4 +1,5 @@
-﻿using RPGMakerVXConverterLib.Entities;
+﻿using System.Diagnostics;
+using RPGMakerVXConverterLib.Entities;
 using RPGMakerVXConverterLib.Enums;
 
 namespace RPGMakerVXConverterLib;
@@ -83,7 +84,7 @@ public class EntityFactory
             {
                 e = new RubyObject();
                 ObjectInstances.Add(e as RubyObject);
-                return e;
+                break;
             }
             case RubyCodes.UserDefined:
                 e = new RubyUserDefined();
@@ -95,11 +96,33 @@ public class EntityFactory
                 throw new Exception($"Unsupported code {code}");
         }
 
+        e.Factory = this;
+
         if (!nonLinkableObjectTypes.Contains(e.GetType()))
         {
             ObjectInstances.Add(e);
         }
 
         return e;
+    }
+    
+    public AbstractEntity Read(BinaryReader reader)
+    {
+        var code = reader.ReadByte();
+        var e = Create((RubyCodes)code);
+        e.ReadData(reader);
+
+        return e;
+    }
+
+    public void Write(BinaryWriter writer, AbstractEntity entity)
+    {
+        if (writer.BaseStream.Position >= 0x1FFe)
+        {
+            // Debug.WriteLine("asd");            
+        }
+        
+        writer.Write((byte)entity.Code);
+        entity.WriteData(writer);
     }
 }

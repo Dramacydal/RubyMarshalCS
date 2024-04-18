@@ -11,16 +11,16 @@ public class RubyString : AbstractEntity
 
     public override RubyCodes Code { get; protected set; } = RubyCodes.String;
 
-    public override void ReadData(RubyFile r)
+    public override void ReadData(BinaryReader r)
     {
         var len = r.ReadPackedInt();
-        Bytes = r.Reader.ReadBytes(len);
+        Bytes = r.ReadBytes(len);
         Value = Encoding.UTF8.GetString(Bytes);
     }
 
-    public override void WriteData(RubyFile f)
+    public override void WriteData(BinaryWriter w)
     {
-        f.WritePackedInt(Bytes.Length);
-        f.Writer.Write(Bytes);
+        w.WritePackedInt(Bytes.Length);
+        w.Write(Bytes);
     }
 }

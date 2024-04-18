@@ -8,13 +8,13 @@ public class RubySymbolLink : AbstractEntity
 
     public override RubyCodes Code { get; protected set; } = RubyCodes.SymbolLink;
 
-    public override void ReadData(RubyFile r)
+    public override void ReadData(BinaryReader r)
     {
         ReferenceId = r.ReadPackedInt();
     }
 
-    public override void WriteData(RubyFile f)
+    public override void WriteData(BinaryWriter w)
     {
-        f.WritePackedInt(ReferenceId);
+        w.WritePackedInt(ReferenceId);
     }
 }

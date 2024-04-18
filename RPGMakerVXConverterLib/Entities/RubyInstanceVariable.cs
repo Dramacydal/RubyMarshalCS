@@ -10,29 +10,29 @@ public class RubyInstanceVariable : AbstractEntity
 
     public override RubyCodes Code { get; protected set; } = RubyCodes.InstanceVar;
 
-    public override void ReadData(RubyFile r)
+    public override void ReadData(BinaryReader r)
     {
-        Object = r.Read(); // RubySymbol
+        Object = Factory.Read(r); // RubySymbol
         var numVars = r.ReadPackedInt();
 
         for (var i = 0; i < numVars; ++i)
         {
-            var k = r.Read();
-            var v = r.Read();
+            var k = Factory.Read(r);
+            var v = Factory.Read(r);
 
             Variables.Add(new(k, v));
         }
     }
 
-    public override void WriteData(RubyFile f)
+    public override void WriteData(BinaryWriter w)
     {
-        f.Write(Object);
-        f.WritePackedInt(Variables.Count);
+        Factory.Write(w, Object);
+        w.WritePackedInt(Variables.Count);
 
         foreach (var v in Variables)
         {
-            f.Write(v.Key);
-            f.Write(v.Value);
+            Factory.Write(w, v.Key);
+            Factory.Write(w, v.Value);
         }
     }
 }

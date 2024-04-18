@@ -10,31 +10,30 @@ public class RubyObject : AbstractEntity
 
     public override RubyCodes Code { get; protected set; } = RubyCodes.Object;
 
-    public override void ReadData(RubyFile r)
+    public override void ReadData(BinaryReader r)
     {
-        var s = r.Read();
-        ClassName = s;
+        ClassName = Factory.Read(r);
 
         var propCnt = r.ReadPackedInt();
 
         for (var i = 0; i < propCnt; ++i)
         {
-            var k = r.Read();
-            var v = r.Read();
+            var k = Factory.Read(r);
+            var v = Factory.Read(r);
 
             Fields.Add(new(k, v));
         }
     }
 
-    public override void WriteData(RubyFile f)
+    public override void WriteData(BinaryWriter w)
     {
-        f.Write(ClassName);
-        f.WritePackedInt(Fields.Count);
+        Factory.Write(w, ClassName);
+        w.WritePackedInt(Fields.Count);
 
         foreach (var field in Fields)
         {
-            f.Write(field.Key);
-            f.Write(field.Value);
+            Factory.Write(w, field.Key);
+            Factory.Write(w, field.Value);
         }
     }
 }

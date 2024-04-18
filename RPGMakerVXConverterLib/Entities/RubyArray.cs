@@ -8,19 +8,19 @@ public class RubyArray : AbstractEntity
 
     public override RubyCodes Code { get; protected set; } = RubyCodes.Array;
 
-    public override void ReadData(RubyFile r)
+    public override void ReadData(BinaryReader r)
     {
         var size = r.ReadPackedInt();
 
         for (var i = 0; i < size; ++i)
-            Elements.Add(r.Read());
+            Elements.Add(Factory.Read(r));
     }
 
-    public override void WriteData(RubyFile f)
+    public override void WriteData(BinaryWriter w)
     {
-        f.WritePackedInt(Elements.Count);
+        w.WritePackedInt(Elements.Count);
         
         foreach (var e in Elements)
-            e.WriteData(f);
+            Factory.Write(w, e);
     }
 }

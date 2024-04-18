@@ -8,27 +8,27 @@ public class RubyHash : AbstractEntity
 
     public override RubyCodes Code { get; protected set; } = RubyCodes.RubyHash;
 
-    public override void ReadData(RubyFile f)
+    public override void ReadData(BinaryReader r)
     {
-        var numPairs = f.ReadPackedInt();
+        var numPairs = r.ReadPackedInt();
 
         for (var i = 0; i < numPairs; ++i)
         {
-            var k = f.Read();
-            var v = f.Read();
+            var k = Factory.Read(r);
+            var v = Factory.Read(r);
 
             Pairs.Add(new(k, v));
         }
     }
 
-    public override void WriteData(RubyFile f)
+    public override void WriteData(BinaryWriter w)
     {
-        f.WritePackedInt(Pairs.Count);
+        w.WritePackedInt(Pairs.Count);
 
         foreach (var pair in Pairs)
         {
-            f.Write(pair.Key);
-            f.Write(pair.Value);
+            Factory.Write(w, pair.Key);
+            Factory.Write(w, pair.Value);
         }
     }
 }

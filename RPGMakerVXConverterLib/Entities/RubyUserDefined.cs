@@ -10,18 +10,18 @@ public class RubyUserDefined : AbstractEntity
 
     public override RubyCodes Code { get; protected set; } = RubyCodes.UserDefined;
 
-    public override void ReadData(RubyFile r)
+    public override void ReadData(BinaryReader r)
     {
-        ClassName = r.Read();
+        ClassName = Factory.Read(r);
         
         var len = r.ReadPackedInt();
-        Bytes = r.Reader.ReadBytes(len);
+        Bytes = r.ReadBytes(len);
     }
 
-    public override void WriteData(RubyFile f)
+    public override void WriteData(BinaryWriter w)
     {
-        f.Write(ClassName);
-        f.WritePackedInt(Bytes.Length);
-        f.Writer.Write(Bytes);
+        Factory.Write(w, ClassName);
+        w.WritePackedInt(Bytes.Length);
+        w.Write(Bytes);
     }
 }

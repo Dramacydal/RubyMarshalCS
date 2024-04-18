@@ -7,11 +7,11 @@ public class RubyFalse : AbstractEntity
 {
     public override RubyCodes Code { get; protected set; } = RubyCodes.False;
 
-    public override void ReadData(RubyFile r)
+    public override void ReadData(BinaryReader r)
     {
     }
 
-    public override void WriteData(RubyFile f)
+    public override void WriteData(BinaryWriter w)
     {
     }
 }
