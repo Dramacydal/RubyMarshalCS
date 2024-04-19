@@ -12,8 +12,8 @@ public enum RubyCodes: byte
     True = 84,
     Array = 91,
     Float = 102,
-    PackedInt = 105,
+    FixNum = 105,
     Object = 111,
     UserDefined = 117,
-    RubyHash = 123,
+    Hash = 123,
 }

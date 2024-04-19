@@ -12,16 +12,16 @@ public class RubyUserDefined : AbstractEntity
 
     public override void ReadData(BinaryReader r)
     {
-        ClassName = Factory.Read(r);
+        ClassName = Context.Read(r);
         
-        var len = r.ReadPackedInt();
+        var len = r.ReadFixNum();
         Bytes = r.ReadBytes(len);
     }
 
     public override void WriteData(BinaryWriter w)
     {
-        Factory.Write(w, ClassName);
-        w.WritePackedInt(Bytes.Length);
+        Context.Write(w, ClassName);
+        w.WriteFixNum(Bytes.Length);
         w.Write(Bytes);
     }
 }

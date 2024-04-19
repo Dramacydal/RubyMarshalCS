@@ -15,7 +15,7 @@ public class RubyFloat : AbstractEntity
 
     public override void ReadData(BinaryReader r)
     {
-        var len = r.ReadPackedInt();
+        var len = r.ReadFixNum();
         var rawBytes = r.ReadBytes(len);
         RawBytes = rawBytes;
         var bytes = rawBytes.TakeWhile(_ => _ != 0).ToArray();
@@ -51,19 +51,19 @@ public class RubyFloat : AbstractEntity
         {
             case FloatType.Normal:
                 var str = Value.ToString(CultureInfo.InvariantCulture);
-                w.WritePackedInt(str.Length);
+                w.WriteFixNum(str.Length);
                 w.Write(Encoding.ASCII.GetBytes(str));
                 break;
             case FloatType.Inf:
-                w.WritePackedInt(3);
+                w.WriteFixNum(3);
                 w.Write(Encoding.ASCII.GetBytes("inf"));
                 break;
             case FloatType.NegInf:
-                w.WritePackedInt(4);
+                w.WriteFixNum(4);
                 w.Write(Encoding.ASCII.GetBytes("-inf"));
                 break;
             case FloatType.NaN:
-                w.WritePackedInt(3);
+                w.WriteFixNum(3);
                 w.Write(Encoding.ASCII.GetBytes("nan"));
                 break;
         }

@@ -10,11 +10,11 @@ public class RubySymbolLink : AbstractEntity
 
     public override void ReadData(BinaryReader r)
     {
-        ReferenceId = r.ReadPackedInt();
+        ReferenceId = r.ReadFixNum();
     }
 
     public override void WriteData(BinaryWriter w)
     {
-        w.WritePackedInt(ReferenceId);
+        w.WriteFixNum(ReferenceId);
     }
 }

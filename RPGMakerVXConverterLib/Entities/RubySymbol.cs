@@ -11,7 +11,7 @@ public class RubySymbol : AbstractEntity
 
     public override void ReadData(BinaryReader r)
     {
-        var len = r.ReadPackedInt();
+        var len = r.ReadFixNum();
 
         Name = Encoding.UTF8.GetString(r.ReadBytes(len));
     }
@@ -20,7 +20,12 @@ public class RubySymbol : AbstractEntity
     {
         var bytes = Encoding.UTF8.GetBytes(Name);
         
-        w.WritePackedInt(bytes.Length);
+        w.WriteFixNum(bytes.Length);
         w.Write(bytes);
+    }
+
+    public override string ToString()
+    {
+        return Name;
     }
 }

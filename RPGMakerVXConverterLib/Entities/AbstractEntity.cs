@@ -1,10 +1,13 @@
-﻿using RPGMakerVXConverterLib.Enums;
+﻿using Newtonsoft.Json;
+using RPGMakerVXConverterLib.Enums;
 
 namespace RPGMakerVXConverterLib.Entities;
 
+// [JsonConverter(typeof(EntityConverter))]
 public abstract class AbstractEntity
 {
-    public EntityFactory Factory { get; set; }
+    [JsonIgnore]
+    public SerializationContext Context { get; set; }
 
     public abstract RubyCodes Code { get; protected set; }
     

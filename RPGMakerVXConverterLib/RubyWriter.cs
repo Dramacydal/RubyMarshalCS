@@ -1,26 +1,34 @@
-﻿using RPGMakerVXConverterLib.Entities;
+﻿using Newtonsoft.Json;
+using RPGMakerVXConverterLib.Entities;
 
 namespace RPGMakerVXConverterLib;
 
 public class RubyWriter
 {
-    protected readonly BinaryWriter Writer;
-
     public AbstractEntity Root { get; set; }
     
-    private EntityFactory Factory { get; }
+    private SerializationContext Context { get; }
 
-    public RubyWriter(BinaryWriter w)
+    public RubyWriter()
     {
-        Factory = new EntityFactory();
-
-        Writer = w;
+        Context = new SerializationContext();
     }
 
-    public void Write()
+    public void Write(BinaryWriter w)
     {
-        Writer.Write((ushort)0x804);
+        w.Write((ushort)0x804);
 
-        Factory.Write(Writer, Root);
+        Context.Write(w, Root);
+    }
+    
+    public void WriteJson(StreamWriter w)
+    {
+        JsonSerializerSettings s = new()
+        {
+            TypeNameHandling = TypeNameHandling.All
+        };
+
+        var str = JsonConvert.SerializeObject(Root, Formatting.Indented, s);
+        w.Write(str);
     }
 }

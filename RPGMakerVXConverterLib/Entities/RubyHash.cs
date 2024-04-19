@@ -6,16 +6,16 @@ public class RubyHash : AbstractEntity
 {
     private List<KeyValuePair<AbstractEntity, AbstractEntity>> Pairs = new();
 
-    public override RubyCodes Code { get; protected set; } = RubyCodes.RubyHash;
+    public override RubyCodes Code { get; protected set; } = RubyCodes.Hash;
 
     public override void ReadData(BinaryReader r)
     {
-        var numPairs = r.ReadPackedInt();
+        var numPairs = r.ReadFixNum();
 
         for (var i = 0; i < numPairs; ++i)
         {
-            var k = Factory.Read(r);
-            var v = Factory.Read(r);
+            var k = Context.Read(r);
+            var v = Context.Read(r);
 
             Pairs.Add(new(k, v));
         }
@@ -23,12 +23,12 @@ public class RubyHash : AbstractEntity
 
     public override void WriteData(BinaryWriter w)
     {
-        w.WritePackedInt(Pairs.Count);
+        w.WriteFixNum(Pairs.Count);
 
         foreach (var pair in Pairs)
         {
-            Factory.Write(w, pair.Key);
-            Factory.Write(w, pair.Value);
+            Context.Write(w, pair.Key);
+            Context.Write(w, pair.Value);
         }
     }
 }

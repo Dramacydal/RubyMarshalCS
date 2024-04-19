@@ -12,13 +12,13 @@ public class RubyInstanceVariable : AbstractEntity
 
     public override void ReadData(BinaryReader r)
     {
-        Object = Factory.Read(r); // RubySymbol
-        var numVars = r.ReadPackedInt();
+        Object = Context.Read(r); // RubySymbol
+        var numVars = r.ReadFixNum();
 
         for (var i = 0; i < numVars; ++i)
         {
-            var k = Factory.Read(r);
-            var v = Factory.Read(r);
+            var k = Context.Read(r);
+            var v = Context.Read(r);
 
             Variables.Add(new(k, v));
         }
@@ -26,13 +26,13 @@ public class RubyInstanceVariable : AbstractEntity
 
     public override void WriteData(BinaryWriter w)
     {
-        Factory.Write(w, Object);
-        w.WritePackedInt(Variables.Count);
+        Context.Write(w, Object);
+        w.WriteFixNum(Variables.Count);
 
         foreach (var v in Variables)
         {
-            Factory.Write(w, v.Key);
-            Factory.Write(w, v.Value);
+            Context.Write(w, v.Key);
+            Context.Write(w, v.Value);
         }
     }
 }

@@ -1,5 +1,4 @@
-﻿
-using RPGMakerVXConverterLib.Enums;
+﻿using RPGMakerVXConverterLib.Enums;
 
 namespace RPGMakerVXConverterLib.Entities;
 

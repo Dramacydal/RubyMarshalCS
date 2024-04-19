@@ -1,34 +1,40 @@
-﻿using RPGMakerVXConverterLib.Entities;
-using RPGMakerVXConverterLib.Enums;
+﻿using Newtonsoft.Json;
+using RPGMakerVXConverterLib.Entities;
 using RPGMakerVXConverterLib.Exceptions;
+using RPGMakerVXConverterLib.Settings;
 
 namespace RPGMakerVXConverterLib;
 
 public class RubyReader
 {
-    protected readonly BinaryReader Reader;
-
-    public AbstractEntity Root { get; set; }
+    private readonly ReaderSettings _settings;
     
-    private EntityFactory Factory { get; }
+    public AbstractEntity Root { get; set; }
 
-    public RubyReader(BinaryReader r)
+    private SerializationContext Context { get; }
+
+    public RubyReader(ReaderSettings settings = null)
     {
-        Factory = new EntityFactory();
-
-        Reader = r;
-
-        _read();
+        Context = new SerializationContext(settings);
+        _settings = settings ?? _settings;
     }
 
-    private void _read()
+    public void Read(BinaryReader r)
     {
-        var version = Reader.ReadUInt16();
+        var version = r.ReadUInt16();
         if (version != 0x804)
-        {
             throw new ValidationException($"Wrong version: {version}");
-        }
 
-        Root = Factory.Read(Reader);
+        Root = Context.Read(r);
+    }
+
+    public void ReadJson(StreamReader r)
+    {
+        // JsonSerializerSettings ss = new()
+        // {
+        //     TypeNameHandling = TypeNameHandling.All
+        // };
+
+        Root = JsonConvert.DeserializeObject<AbstractEntity>(r.ReadToEnd());
     }
 }

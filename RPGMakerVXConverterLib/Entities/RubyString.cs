@@ -13,14 +13,14 @@ public class RubyString : AbstractEntity
 
     public override void ReadData(BinaryReader r)
     {
-        var len = r.ReadPackedInt();
+        var len = r.ReadFixNum();
         Bytes = r.ReadBytes(len);
         Value = Encoding.UTF8.GetString(Bytes);
     }
 
     public override void WriteData(BinaryWriter w)
     {
-        w.WritePackedInt(Bytes.Length);
+        w.WriteFixNum(Bytes.Length);
         w.Write(Bytes);
     }
 }
