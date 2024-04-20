@@ -1,6 +1,6 @@
 ﻿using System.Collections;
-using System.Diagnostics;
 using System.Reflection;
+using System.Text;
 using RubyMarshal.Entities;
 using RubyMarshal.Serialization;
 
@@ -152,43 +152,7 @@ public static class RubyConverter
 
     public static T Deserialize<T>(AbstractEntity data)
     {
-        if (data is RubyObject ro)
-            return DeserializeObject<T>(ro);
-        if (data is RubyArray ra)
-            return DeserializeArray<T>(ra);
-        if (data is RubyHash rh)
-            return DeserializeDictionary<T>(rh);
-            
-        var obj = Activator.CreateInstance<T>();
-        return (T)obj;
-    }
-
-    private static T DeserializeArray<T>(RubyArray data)
-    {
-        if (!typeof(IList).IsAssignableFrom(typeof(T)))
-            throw new Exception($"Return type [{typeof(T).Name}] does not implement IList interface");
-
-        var obj = Activator.CreateInstance<T>() as IList;
-
-        var list = InitFromObject(typeof(T), data) as IList;
-        foreach (var e in list)
-            obj.Add(e);
-
-        return (T)obj;
-    }
-
-    private static T DeserializeDictionary<T>(RubyHash data)
-    {
-        if (!typeof(IDictionary).IsAssignableFrom(typeof(T)))
-            throw new Exception($"Return type [{typeof(T).Name}] does not implement IDictionary interface");
-
-        var obj = Activator.CreateInstance<T>() as IDictionary;
-
-        var dictionary = InitFromObject(typeof(T), data) as IDictionary;
-        foreach (DictionaryEntry e in dictionary)
-            obj.Add(e.Key, e.Value);
-
-        return (T)obj;
+        return (T)InitFromObject(typeof(T), data);
     }
 
     private static T DeserializeObject<T>(RubyObject data)
@@ -239,7 +203,7 @@ public static class RubyConverter
                         continue;
                 }
                 
-                w.SetValue(InitFromObject(w.Type, data));
+                w.SetValue(InitFromObject(w.Type, value));
             }
 
             continue;
@@ -256,7 +220,20 @@ public static class RubyConverter
             return rsy.ToString();
 
         if (e is RubyString rst)
-            return rst.Value;
+        {
+            if (typeof(IList).IsAssignableFrom(t))
+            {
+                var list = Activator.CreateInstance(t) as IList;
+                foreach (var re in rst.Bytes)
+                    list.Add(re);
+                return list;
+            }
+
+            if (t == typeof(object))
+                return rst.Bytes;
+
+            return Encoding.UTF8.GetString(rst.Bytes);
+        }
 
         if (e is RubyFixNum rfn)
             return rfn.Value;
@@ -285,7 +262,7 @@ public static class RubyConverter
             var list = Activator.CreateInstance(t) as IList;
 
             foreach (var re in ra.Elements)
-                list.Add(InitFromObject(SerializationHelper.Instance.SearchElementTypeForArray(t), re));
+                list.Add(InitFromObject(SerializationHelper.Instance.SearchElementTypeForList(t), re));
 
             return list;
         }
@@ -294,8 +271,6 @@ public static class RubyConverter
         {
             if (!typeof(IDictionary).IsAssignableFrom(t))
                 throw new Exception("Type does not implement IList");
-
-            var type = t.GetGenericArguments();
 
             var dict = Activator.CreateInstance(t) as IDictionary;
 

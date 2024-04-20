@@ -35,6 +35,10 @@ public class SerializationHelper
 
     private Dictionary<Type, TypeCandidateInfo> _infos = new();
 
+    private Dictionary<Type, Type?> _elementTypeForListMap = new();
+
+    private Dictionary<Type, Tuple<Type, Type>?> _elemenTypeForDictionaryMap = new();
+
     public Candidate? GetFieldCandidate(Type type, string fieldName)
     {
         var info = GetTypeCandidateInfo(type);
@@ -140,9 +144,12 @@ public class SerializationHelper
     {
         foreach (var i in t.GetInterfaces())
         {
-            var g = i.GetGenericTypeDefinition();
-            if (i.IsGenericType &&  g == typeof(IList<>))
-                return i.GetGenericArguments()[0];
+            if (i.IsGenericType)
+            {
+                var g = i.GetGenericTypeDefinition();
+                if (g == typeof(IList<>))
+                    return i.GetGenericArguments()[0];
+            }
         }
 
         return null;
@@ -152,53 +159,85 @@ public class SerializationHelper
     {
         foreach (var i in t.GetInterfaces())
         {
-            var g = i.GetGenericTypeDefinition();
-            if (i.IsGenericType && g == typeof(IDictionary))
+            if (i.IsGenericType)
             {
-                var genericArguments = i.GetGenericArguments();
+                var g = i.GetGenericTypeDefinition();
+                if (g == typeof(IDictionary<,>))
+                {
+                    var genericArguments = i.GetGenericArguments();
 
-                return new(genericArguments[0], genericArguments[1]);
+                    return new(genericArguments[0], genericArguments[1]);                    
+                }
             }
         }
 
         return null;
     }
 
-    public Type? SearchElementTypeForArray(Type? type)
+    public Type SearchElementTypeForList(Type type)
     {
         if (!typeof(IList).IsAssignableFrom(type))
             throw new Exception($"Type [{type}] does not implement IList");
 
-        for (;;)
+        Type? result = null;
+        if (!_elementTypeForListMap.ContainsKey(type))
         {
-            var g = SearchTypeForGenericList(type);
-            if (g != null)
-                return g;
-            
-            type = type.BaseType;
-            if (type == null)
-                break;
-        }
 
-        return null;
+            for (;;)
+            {
+                var g = SearchTypeForGenericList(type);
+                if (g != null)
+                {
+                    result = g;
+                    break;
+                }
+
+                type = type.BaseType;
+                if (type == null)
+                    break;
+            }
+
+            _elementTypeForListMap[type!] = result;
+        }
+        else
+            result = _elementTypeForListMap[type];
+
+        if (result != null)
+            return result;
+
+        throw new Exception($"Failed to determine type of generic list [{type}]");
     }
 
-    public Tuple<Type, Type>? SearchElementTypesForDictionary(Type? type)
+    public Tuple<Type, Type> SearchElementTypesForDictionary(Type type)
     {
         if (!typeof(IDictionary).IsAssignableFrom(type))
             throw new Exception($"Type [{type}] does not implement IDictionary");
 
-        for (;;)
+        Tuple<Type,Type>? result = null;
+        if (!_elemenTypeForDictionaryMap.ContainsKey(type))
         {
-            var g = SearchTypesForGenericDictionary(type);
-            if (g != null)
-                return g;
+            for (;;)
+            {
+                var g = SearchTypesForGenericDictionary(type);
+                if (g != null)
+                {
+                    result = g;
+                    break;
+                }
 
-            type = type.BaseType;
-            if (type == null)
-                break;
+                type = type.BaseType;
+                if (type == null)
+                    break;
+            }
+            
+            _elemenTypeForDictionaryMap[type!] = result;
         }
+        else
+            result = _elemenTypeForDictionaryMap[type];
 
-        return null;
+        if (result != null)
+            return result;
+
+        throw new Exception($"Failed to determine type of generic dictionary [{type}]");
     }
 }
