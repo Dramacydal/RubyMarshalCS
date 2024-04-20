@@ -10,12 +10,26 @@ public static class RubyConverter
 {
     private static Dictionary<string, Type> _classMap = new();
 
+    private static Dictionary<Type, Type> _customSerializersByType = new();
+
     static RubyConverter()
     {
         foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
         foreach (var t in a.GetTypes())
-        foreach (var attr in t.GetCustomAttributes(typeof(RubyObjectAttribute)))
-            RegisterClass((attr as RubyObjectAttribute).Name, t);
+        foreach (var attr in t.GetCustomAttributes())
+        {
+            if (attr.GetType() == typeof(RubyObjectAttribute))
+            {
+                RegisterClass((attr as RubyObjectAttribute).Name, t);
+                continue;
+            }
+
+            if (attr.GetType() == typeof(RubyCustomSerializerAttribute))
+            {
+                RegisterCustomSerializer(t, (attr as RubyCustomSerializerAttribute).Type);
+                continue;
+            }
+        }
     }
 
     public static void RegisterClass(string name, Type type)
@@ -24,6 +38,32 @@ public static class RubyConverter
             throw new Exception($"Class [{name}] already registered");
 
         _classMap[name] = type;
+    }
+
+    public static void RegisterCustomSerializer(Type type, Type serializer)
+    {
+        if (_customSerializersByType.ContainsKey(type))
+            throw new Exception($"Custom serializer for class [{type}] already registered");
+
+        var found = false;
+        foreach (var i in serializer.GetInterfaces())
+        {
+            if (i.IsGenericType)
+            {
+                var g = i.GetGenericTypeDefinition();
+                if (g == typeof(ICustomRubySerializer<>))
+                {
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        if (!found)
+            throw new Exception(
+                $"Custom serializer [{serializer}] does not implement ICustomRubySerializer<> interface");
+
+        _customSerializersByType[type] = serializer;
     }
 
     class ValueWrapper
@@ -155,11 +195,9 @@ public static class RubyConverter
         return (T)InitFromObject(typeof(T), data);
     }
 
-    private static T DeserializeObject<T>(RubyObject data)
+    private static object DeserializeObject(Type type, RubyObject data)
     {
-        var type = typeof(T);
-
-        var obj = Activator.CreateInstance<T>();
+        var obj = Activator.CreateInstance(type);
 
         foreach (var (key, value) in data.Fields)
         {
@@ -202,11 +240,9 @@ public static class RubyConverter
                     default:
                         continue;
                 }
-                
+
                 w.SetValue(InitFromObject(w.Type, value));
             }
-
-            continue;
         }
 
         return obj;
@@ -215,7 +251,7 @@ public static class RubyConverter
     private static object InitFromObject(Type t, AbstractEntity e)
     {
         e = e.ResolveIfLink();
-        
+
         if (e is RubySymbol rsy)
             return rsy.ToString();
 
@@ -285,33 +321,53 @@ public static class RubyConverter
         }
 
         if (e is RubyUserDefined ru)
-            return ru;
-        
+        {
+            if (t == typeof(object))
+                return ru;
+
+            var objectName = ru.GetRealClassName();
+            if (_classMap.ContainsKey(objectName))
+                return DeserializeUserDefinedObject(_classMap[objectName], ru);
+
+            throw new Exception($"Unsupported user-defined object [{objectName}]");
+        }
+
         if (e is RubyObject ro)
         {
-            var objectName = ro.GetRealClassName().ToString();
+            if (t == typeof(object))
+                return ro;
+
+            var objectName = ro.GetRealClassName();
             if (_classMap.ContainsKey(objectName))
             {
                 var type = _classMap[objectName];
 
-                // foreach (MethodInfo mi in typeof(RubyConverter).GetMethods())
-                // {
-                //     if (mi.Name == nameof(Deserialize))
-                //     {
-                //         var args = mi.GetGenericArguments();
-                //     }
-                //     
-                // }
-
-                var m = typeof(RubyConverter).GetMethod(nameof(DeserializeObject), BindingFlags.Static | BindingFlags.NonPublic, new[] { typeof(RubyObject) });
-
-
-                return m.MakeGenericMethod(type).Invoke(null, new[] { ro });
+                return DeserializeObject(type, ro);
             }
-            
+
             throw new Exception($"Unsupported object [{objectName}]");
         }
 
         throw new Exception($"Unsupported [{e.GetType()}]");
+    }
+
+    private static object DeserializeUserDefinedObject(Type type, RubyUserDefined data)
+    {
+        var obj = Activator.CreateInstance(type);
+
+        if (!_customSerializersByType.ContainsKey(type))
+            throw new Exception(
+                $"Class [{type}] is used for user-defined ruby object serialization and needs a custom serializer");
+
+        var serializerType = _customSerializersByType[type];
+        var serializer = Activator.CreateInstance(serializerType);
+
+        var method = serializerType.GetMethod("Read");
+
+        using (var stream = new MemoryStream(data.Bytes))
+        using (var reader = new BinaryReader(stream))
+            method.Invoke(serializer, new[] { obj, reader });
+
+        return obj;
     }
 }

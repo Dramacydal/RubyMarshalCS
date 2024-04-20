@@ -30,7 +30,7 @@ public class SerializationHelper
         public Type Type { get; set; }
 
         public Dictionary<string, Candidate> FieldCandidates = new();
-        public Candidate ExtensionDataCandidate { get; set; }
+        public Candidate? ExtensionDataCandidate { get; set; }
     }
 
     private Dictionary<Type, TypeCandidateInfo> _infos = new();
@@ -110,12 +110,6 @@ public class SerializationHelper
                     Name = name,
                 };
             }
-        }
-
-        var attr2 = type.GetCustomAttribute<RubyExtensionDataAttribute>();
-        if (attr2 != null)
-        {
-            
         }
     }
 

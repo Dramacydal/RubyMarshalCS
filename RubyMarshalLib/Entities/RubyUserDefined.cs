@@ -5,7 +5,7 @@ namespace RubyMarshal.Entities;
 public class RubyUserDefined : AbstractEntity
 {
     public AbstractEntity ClassName { get; set; }
-    
+
     public byte[] Bytes { get; set; }
 
     public override RubyCodes Code { get; protected set; } = RubyCodes.UserDefined;
@@ -13,7 +13,7 @@ public class RubyUserDefined : AbstractEntity
     public override void ReadData(BinaryReader r)
     {
         ClassName = Context.Read(r);
-        
+
         var len = r.ReadFixNum();
         Bytes = r.ReadBytes(len);
     }
@@ -23,5 +23,15 @@ public class RubyUserDefined : AbstractEntity
         Context.Write(w, ClassName);
         w.WriteFixNum(Bytes.Length);
         w.Write(Bytes);
+    }
+
+    public string GetRealClassName()
+    {
+        return ClassName.ResolveIfLink().ToString();
+    }
+
+    public override string ToString()
+    {
+        return "User object: " + GetRealClassName();
     }
 }
