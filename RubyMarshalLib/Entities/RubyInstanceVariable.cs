@@ -4,9 +4,9 @@ namespace RubyMarshal.Entities;
 
 public class RubyInstanceVariable : AbstractEntity
 {
-    private AbstractEntity Object { get; set; }
+    public AbstractEntity Object { get; set; }
 
-    private List<KeyValuePair<AbstractEntity,AbstractEntity>> Variables { get; set; } = new();
+    public List<KeyValuePair<AbstractEntity,AbstractEntity>> Variables { get; set; } = new();
 
     public override RubyCodes Code { get; protected set; } = RubyCodes.InstanceVar;
 

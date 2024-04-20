@@ -37,8 +37,13 @@ public class RubyObject : AbstractEntity
         }
     }
 
+    public string GetRealClassName()
+    {
+        return ClassName.ResolveIfLink().ToString();
+    }
+
     public override string ToString()
     {
-        return "Object: " + ClassName.ToString();
+        return "Object: " + GetRealClassName().ToString();
     }
 }
