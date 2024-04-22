@@ -211,9 +211,26 @@ public class RubyDeserializer
         {
             if (riv.Variables.Count != 1)
                 throw new Exception($"{nameof(RubyString)} instance variable is expected 1 parameter");
+
+            var v = riv.Variables[0];
+
+            var realVar = riv.Context.LookupSymbol(v.Key);
             
-            // always: E => true
-            // external encoding?
+            if (realVar.ToString() == "E")
+            {
+                if (v.Value is RubyTrue)
+                    ((SpecialString)res).Encoding = Encoding.UTF8;
+                else if (v.Value is RubyFalse)
+                    ((SpecialString)res).Encoding = Encoding.ASCII;
+                else
+                {
+                    // string encoding
+                }
+            }
+            
+            // True - UTF-8
+            // False - ASCII
+            // string - other encoding name
         }
         
         if (riv.Object.Code != RubyCodes.String)
