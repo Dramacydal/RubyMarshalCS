@@ -26,6 +26,6 @@ public class RubyMarshal
 
     public static T Load<T>(RubyReader reader, ReaderSettings? settings = null)
     {
-        return RubyConverter.Deserialize<T>(reader.Root, settings);
+        return RubyDeserializer.Deserialize<T>(reader.Root, settings);
     }
 }

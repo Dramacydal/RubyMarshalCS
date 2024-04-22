@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using System.Diagnostics;
-using System.Reflection;
 using System.Text;
 using RubyMarshal.Entities;
 using RubyMarshal.Enums;
@@ -10,74 +9,15 @@ using RubyMarshal.SpecialTypes;
 
 namespace RubyMarshal;
 
-public class RubyConverter
+public class RubyDeserializer
 {
     private readonly ReaderSettings _settings;
 
-    private static Dictionary<string, Type> _rubyObjectsClassMap = new();
-
-    private static Dictionary<Type, Type> _userSerializersByType = new();
-
     private Dictionary<object, object> _objectConversionMap = new();
 
-    private RubyConverter(ReaderSettings? settings = null)
+    private RubyDeserializer(ReaderSettings? settings = null)
     {
         _settings = settings ?? new();
-    }
-
-    static RubyConverter()
-    {
-        foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
-        foreach (var t in a.GetTypes())
-        foreach (var attr in t.GetCustomAttributes())
-        {
-            if (attr.GetType() == typeof(RubyObjectAttribute))
-                RegisterRubyObject(((RubyObjectAttribute)attr).Name!, t);
-            else if (attr.GetType() == typeof(RubyUserSerializerAttribute))
-                RegisterUserObjectSerializer(t, ((RubyUserSerializerAttribute)attr).Type);
-            else if (attr.GetType() == typeof(CustomConverterAttribute))
-                RegisterCustomConverter(((CustomConverterAttribute)attr).Type);
-        }
-    }
-
-    private static void RegisterCustomConverter(Type type)
-    {
-        SerializationHelper.RegisterCustomConverter((ICustomConverter)Activator.CreateInstance(type)!);
-    }
-
-    public static void RegisterRubyObject(string name, Type type)
-    {
-        if (_rubyObjectsClassMap.ContainsKey(name))
-            throw new Exception($"Ruby object [{name}] already registered");
-
-        _rubyObjectsClassMap[name] = type;
-    }
-
-    public static void RegisterUserObjectSerializer(Type type, Type serializer)
-    {
-        if (_userSerializersByType.ContainsKey(type))
-            throw new Exception($"User object serializer for type [{type}] already registered");
-
-        // TODO: by default read/write bytes ?
-        var found = false;
-        foreach (var i in serializer.GetInterfaces())
-        {
-            if (i.IsGenericType)
-            {
-                var g = i.GetGenericTypeDefinition();
-                if (g == typeof(IRubyUserSerializer<>))
-                {
-                    found = true;
-                    break;
-                }
-            }
-        }
-
-        if (!found)
-            throw new Exception(
-                $"User object serializer [{serializer}] does not implement ICustomRubySerializer<> interface");
-
-        _userSerializersByType[type] = serializer;
     }
 
     public static T? Deserialize<T>(string path, ReaderSettings? settings = null)
@@ -98,7 +38,7 @@ public class RubyConverter
 
     public static T? Deserialize<T>(AbstractEntity data, ReaderSettings? settings = null)
     {
-        var instance = new RubyConverter(settings);
+        var instance = new RubyDeserializer(settings);
 
         return (T?)SerializationHelper.AssignmentConversion(typeof(T), instance.DeserializeEntity(data), typeof(T) == typeof(object));
     }
@@ -111,7 +51,7 @@ public class RubyConverter
         {
             var fieldName = key.ResolveIfLink().ToString()!;
 
-            var candidate = SerializationHelper.Instance.GetFieldCandidate(type, fieldName);
+            var candidate = SerializationHelper.GetFieldCandidate(type, fieldName);
             if (candidate == null /* || data is RubyUserDefined*/)
                 StoreToExtensionData(type, obj, fieldName, value);
             else
@@ -139,7 +79,7 @@ public class RubyConverter
 
     private void StoreToExtensionData(Type type, object obj ,string fieldName, AbstractEntity value)
     {
-        var extensionCandidate = SerializationHelper.Instance.GetExtensionDataCandidate(type);
+        var extensionCandidate = SerializationHelper.GetExtensionDataCandidate(type);
         if (extensionCandidate != null)
         {
             object? extensionData = null;
@@ -220,10 +160,12 @@ public class RubyConverter
 
                 var ru = (RubyUserDefined)e;
                 var objectName = ru.GetRealClassName();
-                if (!_rubyObjectsClassMap.ContainsKey(objectName))
+
+                var objectType = SerializationHelper.GetTypeForRubyObject(objectName);
+                if (objectType == null)
                     throw new Exception($"Unsupported user-defined object [{objectName}]");
 
-                var c = DeserializeUserDefinedObject(_rubyObjectsClassMap[objectName], ru);
+                var c = DeserializeUserDefinedObject(objectType, ru);
 
                 _objectConversionMap[e] = c;
 
@@ -237,10 +179,11 @@ public class RubyConverter
                 var ro = (RubyObject)e;
 
                 var objectName = ro.GetRealClassName();
-                if (!_rubyObjectsClassMap.ContainsKey(objectName))
+                var objectType = SerializationHelper.GetTypeForRubyObject(objectName);
+                if (objectType == null)
                     throw new Exception($"Unsupported object [{objectName}]");
 
-                var c = DeserializeObject(_rubyObjectsClassMap[objectName], ro);
+                var c = DeserializeObject(objectType, ro);
 
                 _objectConversionMap[e] = c;
 
@@ -285,11 +228,11 @@ public class RubyConverter
     {
         var obj = Activator.CreateInstance(type)!;
 
-        if (!_userSerializersByType.ContainsKey(type))
+        var serializerType = SerializationHelper.GetUserSerializerByType(type);
+        if (serializerType == null)
             throw new Exception(
                 $"Class [{type}] is used for user-defined ruby object serialization and needs a custom serializer");
 
-        var serializerType = _userSerializersByType[type];
         var serializer = Activator.CreateInstance(serializerType);
 
         var method = serializerType.GetMethod("Read")!;
