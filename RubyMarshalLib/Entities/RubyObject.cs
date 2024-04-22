@@ -44,6 +44,6 @@ public class RubyObject : AbstractEntity
 
     public override string ToString()
     {
-        return "Object: " + GetRealClassName().ToString();
+        return "Object: " + GetRealClassName();
     }
 }

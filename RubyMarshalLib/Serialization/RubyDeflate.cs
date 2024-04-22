@@ -53,7 +53,7 @@ public static class RubyDeflate
         return output.ToArray();
     }
 
-    private static uint Adler32(byte[] data)
+    public static uint Adler32(byte[] data)
     {
         uint a = 1, b = 0;
 

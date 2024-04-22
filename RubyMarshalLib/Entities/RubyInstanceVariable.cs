@@ -12,7 +12,7 @@ public class RubyInstanceVariable : AbstractEntity
 
     public override void ReadData(BinaryReader r)
     {
-        Object = Context.Read(r); // RubySymbol
+        Object = Context.Read(r, true);
         var numVars = r.ReadFixNum();
 
         for (var i = 0; i < numVars; ++i)

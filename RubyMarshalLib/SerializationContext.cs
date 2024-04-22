@@ -8,6 +8,8 @@ public class SerializationContext
 {
     private readonly List<AbstractEntity> _symbolInstances = new();
     private readonly List<AbstractEntity> _objectInstances = new();
+    private readonly List<AbstractEntity> _objectLinks = new();
+    private readonly List<AbstractEntity> _symbolLinks = new();
 
     private readonly ReaderSettings _settings = new();
 
@@ -75,7 +77,7 @@ public class SerializationContext
         [RubyCodes.Hash] = typeof(RubyHash),
     };
 
-    public AbstractEntity Create(RubyCodes code)
+    public AbstractEntity Create(RubyCodes code, bool skipObjectStore = false)
     {
         if (!CodeToObjectTypeMap.TryGetValue(code, out var type))
             throw new Exception($"Unsupported code {code}");
@@ -85,18 +87,23 @@ public class SerializationContext
 
         if (code == RubyCodes.Symbol)
             _symbolInstances.Add(e);
-        else if (LinkableObjectTypes.Contains(code))
+        else if (!skipObjectStore && LinkableObjectTypes.Contains(code))
             _objectInstances.Add(e);
 
         return e;
     }
 
-    public AbstractEntity Read(BinaryReader reader)
+    public AbstractEntity Read(BinaryReader reader, bool skipObjectStore = false)
     {
         var code = reader.ReadByte();
-        var e = Create((RubyCodes)code);
+        var e = Create((RubyCodes)code, skipObjectStore);
         e.ReadData(reader);
 
+        if (e.Code == RubyCodes.ObjectLink)
+            _objectLinks.Add(e);
+        else if (e.Code == RubyCodes.SymbolLink)
+            _symbolLinks.Add(e);
+        
         if (_settings.ResolveLinks)
         {
             if (e.Code == RubyCodes.ObjectLink)

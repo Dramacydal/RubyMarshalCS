@@ -1,4 +1,5 @@
-﻿using RubyMarshal.Enums;
+﻿using System.Text;
+using RubyMarshal.Enums;
 
 namespace RubyMarshal.Entities;
 
@@ -18,5 +19,10 @@ public class RubyString : AbstractEntity
     {
         w.WriteFixNum(Bytes.Length);
         w.Write(Bytes);
+    }
+
+    public override string ToString()
+    {
+        return Encoding.UTF8.GetString(Bytes);
     }
 }

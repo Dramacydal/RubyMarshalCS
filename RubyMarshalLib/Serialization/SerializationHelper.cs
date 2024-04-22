@@ -381,7 +381,7 @@ public static class SerializationHelper
             valueType = typeof(object);
         }
         else
-            throw new Exception("Type {newType} does not implement IList");
+            throw new Exception($"Type {newType} does not implement IList");
 
         foreach (var e in list)
         {
@@ -409,7 +409,7 @@ public static class SerializationHelper
             valueType = new(typeof(object), typeof(object));
         }
         else
-            throw new Exception("Type {newType} does not implement IList");
+            throw new Exception($"Type {newType} does not implement IList");
 
         foreach (DictionaryEntry e in dict)
         {

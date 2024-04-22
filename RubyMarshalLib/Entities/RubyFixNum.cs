@@ -254,4 +254,9 @@ public class RubyFixNum : AbstractEntity
 
         w.Write(buf, 0, i + 1);
     }
+
+    public override string ToString()
+    {
+        return Value.ToString();
+    }
 }
