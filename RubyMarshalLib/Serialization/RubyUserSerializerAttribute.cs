@@ -1,12 +1,12 @@
 ﻿namespace RubyMarshal.Serialization;
 
 [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
-public class RubyCustomSerializerAttribute : Attribute
+public class RubyUserSerializerAttribute : Attribute
 {
     public Type? Type { get; set; }
 
-    public RubyCustomSerializerAttribute(Type type)
+    public RubyUserSerializerAttribute(Type type)
     {
-        this.Type = type;
+        Type = type;
     }
 }

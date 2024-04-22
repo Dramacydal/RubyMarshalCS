@@ -3,10 +3,6 @@
 [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field)]
 public class RubyPropertyAttribute : Attribute
 {
-    public RubyPropertyAttribute()
-    {
-    }
-    
     public RubyPropertyAttribute(string name)
     {
         if (!name.StartsWith("@"))

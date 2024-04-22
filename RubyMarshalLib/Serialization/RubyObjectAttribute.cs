@@ -3,10 +3,6 @@
 [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
 public class RubyObjectAttribute : Attribute
 {
-    public RubyObjectAttribute()
-    {
-    }
-    
     public RubyObjectAttribute(string name)
     {
         Name = name;

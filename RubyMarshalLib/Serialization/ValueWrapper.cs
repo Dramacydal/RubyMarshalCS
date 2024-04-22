@@ -1,8 +1,4 @@
-﻿using System.Collections;
-using System.Diagnostics;
-using System.Linq.Expressions;
-using System.Reflection;
-using RubyMarshal.SpecialTypes;
+﻿using System.Reflection;
 
 namespace RubyMarshal.Serialization;
 
@@ -16,143 +12,10 @@ class ValueWrapper
 
     public void SetValue(object Value, bool allowDynamic = false)
     {
-        if (Value is IList list)
-        {
-            AddListElements(list, allowDynamic);
-            return;
-        }
-
-        if (Value is IDictionary dictionary)
-        {
-            AddDictionaryElements(dictionary, allowDynamic);
-            return;
-        }
-
-
         if (Property != null)
-        {
-            if (Property.PropertyType != typeof(object) && Property.PropertyType != Value.GetType())
-                Property?.SetValue(Object, ManualCast(Property.PropertyType,Value));
-            else
-                Property?.SetValue(Object, Value);
-        }
+            Property?.SetValue(Object, SerializationHelper.AssignmentConversion(Property.PropertyType, Value, allowDynamic));
 
         if (Field != null)
-        {
-            if (Field.FieldType != typeof(object) && Field.FieldType != Value.GetType())
-                Field?.SetValue(Object, ManualCast(Field.FieldType,Value));
-            else
-                Field?.SetValue(Object, Value);
-        }
-    }
-
-    public static object ManualCast(Type type, object o)
-    {
-        if (o.GetType() != typeof(SpecialString))
-        {
-            Debug.WriteLine("");
-        }
-        
-        var dataParam = Expression.Parameter(typeof(object), "data");
-        var body = Expression.Block(Expression.Convert(Expression.Convert(dataParam, o.GetType()), type));
-
-        var run = Expression.Lambda(body, dataParam).Compile();
-
-        return run.DynamicInvoke(o);
-    }
-
-    private void AddListElements(IList values, bool allowDynamic)
-    {
-        IList? list = null;
-
-        if (Property != null)
-        {
-            if (typeof(IList).IsAssignableFrom(Property.PropertyType))
-            {
-                list = (IList)Property.GetValue(Object);
-                if (list == null)
-                {
-                    list = (IList)Activator.CreateInstance(Property.PropertyType);
-                    Property.SetValue(Object, list);
-                }
-            }
-            else if (Property.PropertyType == typeof(object) && allowDynamic)
-            {
-                list = new List<object>();
-                Property.SetValue(Object, list);
-            }
-            else
-                throw new Exception($"Property [{Property.Name}] does not implement IList interface");
-        }
-
-        if (Field != null)
-        {
-            if (typeof(IList).IsAssignableFrom(Field.FieldType))
-            {
-                list = (IList)Field.GetValue(Object);
-                if (list == null)
-                {
-                    list = Activator.CreateInstance(Field.FieldType) as IList;
-                    Field.SetValue(Object, list);
-                }
-            }
-            else if (Field.FieldType == typeof(object) && allowDynamic)
-            {
-                list = new List<object>();
-                Field.SetValue(Object, list);
-            }
-            else
-                throw new Exception($"Field [{Field.Name}] does not implement IList interface");
-        }
-
-        foreach (var e in values)
-            list?.Add(e);
-    }
-
-    private void AddDictionaryElements(IDictionary values, bool allowDynamic)
-    {
-        IDictionary? dictionary = null;
-        if (Property != null)
-        {
-            if (typeof(IDictionary).IsAssignableFrom(Property.PropertyType))
-            {
-                dictionary = Property.GetValue(Object) as IDictionary;
-                if (dictionary == null)
-                {
-                    dictionary = Activator.CreateInstance(Property.PropertyType) as IDictionary;
-                    Property.SetValue(Object, dictionary);
-                }
-            }
-            else if (Property.PropertyType == typeof(object) && allowDynamic)
-            {
-                dictionary = new Dictionary<object, object>();
-                Property.SetValue(Object, dictionary);
-            }
-            else
-                throw new Exception($"Property [{Property.Name}] does not implement IDictionary interface");
-        }
-
-        if (Field != null)
-        {
-            if (typeof(IDictionary).IsAssignableFrom(Field.FieldType))
-            {
-                dictionary = Field.GetValue(Object) as IDictionary;
-                if (dictionary == null)
-                {
-                    dictionary = Activator.CreateInstance(Field.FieldType) as IDictionary;
-                    Field.SetValue(Object, dictionary);
-                }
-            }
-            else if (Field.FieldType == typeof(object) && allowDynamic)
-            {
-                dictionary = new Dictionary<object, object>();
-                Field.SetValue(Object, dictionary);
-            }
-            else
-                throw new Exception($"Field [{Field.Name}] does not implement IDictionary interface");
-        }
-        
-        foreach (DictionaryEntry e in values)
-            dictionary?.Add(e.Key, e.Value);
+            Field?.SetValue(Object, SerializationHelper.AssignmentConversion(Field.FieldType, Value, allowDynamic));
     }
 }

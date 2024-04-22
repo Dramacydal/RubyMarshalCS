@@ -1,6 +1,9 @@
 ﻿using System.Collections;
+using System.Diagnostics;
+using System.Linq.Expressions;
 using System.Reflection;
 using RubyMarshal.Entities;
+using RubyMarshal.SpecialTypes;
 
 namespace RubyMarshal.Serialization;
 
@@ -39,6 +42,9 @@ public class SerializationHelper
     private Dictionary<Type, Type?> _elementTypeForListMap = new();
 
     private Dictionary<Type, Tuple<Type, Type>?> _elemenTypeForDictionaryMap = new();
+    private static List<ICustomConverter> _customConverters = new();
+
+    public static void RegisterCustomConverter(ICustomConverter converter) => _customConverters.Add(converter);
 
     public Candidate? GetFieldCandidate(Type type, string fieldName)
     {
@@ -247,5 +253,124 @@ public class SerializationHelper
             return result;
 
         throw new Exception($"Failed to determine type of generic dictionary [{type}]");
+    }
+
+    private static object ManualCast(Type type, object o)
+    {
+        if (o == null)
+            return null;
+
+        if (o.GetType() == type)
+            return o;
+
+        var converter = Instance.GetCustomConverter(o, type);
+        if (converter != null)
+            return converter.Convert(o, type);
+        
+        if (o.GetType() != typeof(SpecialString))
+        {
+            Debug.WriteLine("");
+        }
+        
+        var dataParam = Expression.Parameter(typeof(object), "data");
+        var body = Expression.Block(Expression.Convert(Expression.Convert(dataParam, o.GetType()), type));
+
+        var run = Expression.Lambda(body, dataParam).Compile();
+
+        return run.DynamicInvoke(o);
+    }
+
+    private ICustomConverter? GetCustomConverter(object o, Type type)
+    {
+        foreach (var converter in _customConverters)
+            if (converter.CanConvert(o, type))
+                return converter;
+
+        return null;
+    }
+
+    public static object? AssignmentConversion(Type t, object o, bool allowDynamic)
+    {
+        if (o == null)
+            return null;
+
+        if (typeof(AbstractDynamicProperty).IsAssignableFrom(t))
+        {
+            var dynamicInstance = (AbstractDynamicProperty)Activator.CreateInstance(t);
+            dynamicInstance.Set(o);
+
+            return dynamicInstance;
+        }
+
+        if (typeof(IList).IsAssignableFrom(o.GetType()))
+            return ListAssignmentConversion(t, (IList)o, allowDynamic);
+        if (typeof(IDictionary).IsAssignableFrom(o.GetType()))
+            return DictionaryAssignmentConversion(t, (IDictionary)o, allowDynamic);
+
+        return ManualCast(t, o);
+    }
+
+    private static object? ListAssignmentConversion(Type newType, IList list, bool allowDynamic)
+    {
+        IList newList;
+        Type valueType;
+        if (typeof(IList).IsAssignableFrom(newType))
+        {
+            newList = (IList)Activator.CreateInstance(newType);
+            valueType = Instance.SearchElementTypeForList(newType);
+        }
+        else if (newType == typeof(object) && allowDynamic)
+        {
+            newList = new List<object>();
+            valueType = typeof(object);
+        }
+        else
+            throw new Exception("Type {newType} does not implement IList");
+
+        foreach (var e in list)
+        {
+            if (e != null && valueType != typeof(object) && valueType != e.GetType())
+                newList.Add(ManualCast(valueType, e));
+            else
+                newList.Add(e);
+        }
+
+        return newList;
+    }
+
+    private static object? DictionaryAssignmentConversion(Type newType, IDictionary dict, bool allowDynamic)
+    {
+        IDictionary newDict;
+        Tuple<Type, Type> valueType;
+        if (typeof(IDictionary).IsAssignableFrom(newType))
+        {
+            newDict = (IDictionary)Activator.CreateInstance(newType);
+            valueType = Instance.SearchElementTypesForDictionary(newType);
+        }
+        else if (newType == typeof(object) && allowDynamic)
+        {
+            newDict = new Dictionary<object, object>();
+            valueType = new(typeof(object), typeof(object));
+        }
+        else
+            throw new Exception("Type {newType} does not implement IList");
+
+        foreach (DictionaryEntry e in dict)
+        {
+            object key, value;
+            if (e.Key != null && valueType.Item1 != typeof(object) && valueType.Item1 != e.Key.GetType())
+                key = ManualCast(valueType.Item1, e.Key);
+            else
+                key = e.Key;
+
+            if (e.Value != null && valueType.Item2 != typeof(object) && valueType.Item2 != e.Value.GetType())
+                value = ManualCast(valueType.Item2, e.Value);
+            else
+                value = e.Value;
+
+            newDict.Add(key, value);
+        }
+
+        return newDict;
     }
 }
