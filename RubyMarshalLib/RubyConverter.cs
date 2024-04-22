@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 using RubyMarshal.Entities;
+using RubyMarshal.Enums;
 using RubyMarshal.Serialization;
 using RubyMarshal.Settings;
 using RubyMarshal.SpecialTypes;
@@ -31,24 +32,24 @@ public class RubyConverter
         foreach (var attr in t.GetCustomAttributes())
         {
             if (attr.GetType() == typeof(RubyObjectAttribute))
-                RegisterClass((attr as RubyObjectAttribute).Name, t);
+                RegisterRubyObject(((RubyObjectAttribute)attr).Name, t);
             else if (attr.GetType() == typeof(RubyCustomSerializerAttribute))
-                RegisterCustomSerializer(t, (attr as RubyCustomSerializerAttribute).Type);
+                RegisterCustomObjectSerializer(t, ((RubyCustomSerializerAttribute)attr).Type);
         }
     }
 
-    public static void RegisterClass(string name, Type type)
+    public static void RegisterRubyObject(string name, Type type)
     {
         if (_rubyObjectsClassMap.ContainsKey(name))
-            throw new Exception($"Class [{name}] already registered");
+            throw new Exception($"Ruby object [{name}] already registered");
 
         _rubyObjectsClassMap[name] = type;
     }
 
-    public static void RegisterCustomSerializer(Type type, Type serializer)
+    public static void RegisterCustomObjectSerializer(Type type, Type serializer)
     {
         if (_customSerializersByType.ContainsKey(type))
-            throw new Exception($"Custom serializer for class [{type}] already registered");
+            throw new Exception($"Custom object serializer for type [{type}] already registered");
 
         // TODO: by default read/write bytes ?
         var found = false;
@@ -67,7 +68,7 @@ public class RubyConverter
 
         if (!found)
             throw new Exception(
-                $"Custom serializer [{serializer}] does not implement ICustomRubySerializer<> interface");
+                $"Custom object serializer [{serializer}] does not implement ICustomRubySerializer<> interface");
 
         _customSerializersByType[type] = serializer;
     }
@@ -77,9 +78,7 @@ public class RubyConverter
         using var file = File.OpenRead(path);
         using var reader = new BinaryReader(file);
 
-        var r = Deserialize<T>(reader, settings);
-
-        return r;
+        return Deserialize<T>(reader, settings);;
     }
 
     public static T Deserialize<T>(BinaryReader reader, ReaderSettings? settings = null)
@@ -107,27 +106,8 @@ public class RubyConverter
             var fieldName = key.ResolveIfLink().ToString();
 
             var candidate = SerializationHelper.Instance.GetFieldCandidate(type, fieldName);
-            if (candidate == null/* || data is RubyUserDefined*/)
-            {
-                var extensionCandidate = SerializationHelper.Instance.GetExtensionDataCandidate(type);
-                if (extensionCandidate != null)
-                {
-                    object extensionData = null;
-
-                    switch (extensionCandidate.Type)
-                    {
-                        case SerializationHelper.CandidateType.Property:
-                            extensionData = type.GetProperty(extensionCandidate.Name).GetValue(obj);
-                            break;
-                        case SerializationHelper.CandidateType.Field:
-                            extensionData = type.GetField(extensionCandidate.Name).GetValue(obj);
-                            break;
-                    }
-
-                    if (extensionData != null)
-                        (extensionData as Dictionary<string, AbstractEntity>)[fieldName] = value;
-                }
-            }
+            if (candidate == null /* || data is RubyUserDefined*/)
+                StoreToExtensionData(type, obj, fieldName, value);
             else
             {
                 ValueWrapper w;
@@ -146,7 +126,7 @@ public class RubyConverter
 
                 if (typeof(AbstractDynamicProperty).IsAssignableFrom(w.Type))
                 {
-                    var dynamicInstance = Activator.CreateInstance(w.Type) as AbstractDynamicProperty;
+                    var dynamicInstance = (AbstractDynamicProperty)Activator.CreateInstance(w.Type);
                     dynamicInstance.Set(DeserializeEntity(typeof(object), value, true));
 
                     w.SetValue(dynamicInstance, candidate.IsDynamic);
@@ -159,155 +139,179 @@ public class RubyConverter
         return obj;
     }
 
+    private void StoreToExtensionData(Type type, object obj ,string fieldName, AbstractEntity value)
+    {
+        var extensionCandidate = SerializationHelper.Instance.GetExtensionDataCandidate(type);
+        if (extensionCandidate != null)
+        {
+            object extensionData = null;
+
+            switch (extensionCandidate.Type)
+            {
+                case SerializationHelper.CandidateType.Property:
+                    extensionData = type.GetProperty(extensionCandidate.Name).GetValue(obj);
+                    break;
+                case SerializationHelper.CandidateType.Field:
+                    extensionData = type.GetField(extensionCandidate.Name).GetValue(obj);
+                    break;
+            }
+
+            if (extensionData != null)
+                ((Dictionary<string, AbstractEntity>)extensionData)[fieldName] = value;
+        }
+        else if (_settings.EnsureExtensionDataPresent)
+            throw new Exception($"Ruby object type {type} does not have extension data field");
+    }
+
     private object DeserializeEntity(Type t, AbstractEntity e, bool allowDynamic)
     {
         e = e.ResolveIfLink();
 
-        if (e is RubySymbol rsy)
-            return rsy.ToString();
-
-        if (e is RubyString rst)
+        switch (e.Code)
         {
-            if (typeof(IList).IsAssignableFrom(t))
+            case RubyCodes.Symbol:
+                return ((RubySymbol)e).ToString();
+            case RubyCodes.String:
             {
-                var list = Activator.CreateInstance(t) as IList;
-                foreach (var re in rst.Bytes)
-                    list.Add(re);
+                if (typeof(IList).IsAssignableFrom(t))
+                {
+                    var list = (IList)Activator.CreateInstance(t);
+                    foreach (var re in ((RubyString)e).Bytes)
+                        list.Add(re);
+                    return list;
+                }
+
+                return new SpecialString(((RubyString)e).Bytes, Encoding.UTF8);
+            }
+
+            case RubyCodes.InstanceVar:
+            {
+                if (_objectConversionMap.ContainsKey(e))
+                    return _objectConversionMap[e];
+
+                var c = DeserializeInstanceVariable(t, (RubyInstanceVariable)e, allowDynamic);
+
+                _objectConversionMap[e] = c;
+
+                return c;
+            }
+            case RubyCodes.Array:
+            {
+                if (_objectConversionMap.ContainsKey(e))
+                    return _objectConversionMap[e];
+
+                IList list;
+                Type valueType;
+                if (typeof(IList).IsAssignableFrom(t))
+                {
+                    list = (IList)Activator.CreateInstance(t);
+                    valueType = SerializationHelper.Instance.SearchElementTypeForList(t);
+                }
+                else if (t == typeof(object) && allowDynamic)
+                {
+                    list = new List<object>();
+                    valueType = typeof(object);
+                }
+                else
+                    throw new Exception("Type does not implement IList");
+
+                _objectConversionMap[e] = list;
+
+                var ra = (RubyArray)e;
+
+                for (var i = 0; i < ra.Elements.Count; ++i)
+                {
+                    var vv = DeserializeEntity(valueType, ra.Elements[i], allowDynamic);
+
+                    if (vv != null && valueType != typeof(object) && valueType != vv.GetType())
+                        vv = ValueWrapper.ManualCast(valueType, vv);
+
+                    list.Add(vv);
+                }
+
                 return list;
+
             }
-
-            return new SpecialString(rst.Bytes, Encoding.UTF8);
-        }
-
-        if (e is RubyFixNum rfn)
-            return rfn.Value;
-
-        if (e is RubyFloat rfl)
-            return rfl.Value;
-
-        if (e is RubyInstanceVariable riv)
-        {
-            if (_objectConversionMap.ContainsKey(e))
-                return _objectConversionMap[e];
-
-            var c = DeserializeInstanceVariable(t, riv, allowDynamic);
-            
-            _objectConversionMap[e] = c;
-
-            return c;
-        }
-
-        if (e is RubyTrue)
-            return true;
-
-        if (e is RubyFalse)
-            return false;
-
-        if (e is RubyNil)
-            return null;
-
-        if (e is RubyArray ra)
-        {
-            if (_objectConversionMap.ContainsKey(e))
-                return _objectConversionMap[e];
-
-            IList list;
-            Type valueType;
-            if (typeof(IList).IsAssignableFrom(t))
+            case RubyCodes.Hash:
             {
-                list = Activator.CreateInstance(t) as IList;
-                valueType = SerializationHelper.Instance.SearchElementTypeForList(t);
+                if (_objectConversionMap.ContainsKey(e))
+                    return _objectConversionMap[e];
+
+                IDictionary dict;
+                Type keyType, valueType;
+                if (typeof(IDictionary).IsAssignableFrom(t))
+                {
+                    dict = (IDictionary)Activator.CreateInstance(t);
+                    (keyType, valueType) = SerializationHelper.Instance.SearchElementTypesForDictionary(t);
+                }
+                else if (t == typeof(object) && allowDynamic)
+                {
+                    dict = new Dictionary<object, object>();
+                    keyType = valueType = typeof(object);
+                }
+                else
+                    throw new Exception("Type does not implement IList");
+
+                _objectConversionMap[e] = dict;
+
+                foreach (var re in ((RubyHash)e).Pairs)
+                    dict.Add(DeserializeEntity(keyType, re.Key, allowDynamic),
+                        DeserializeEntity(valueType, re.Value, allowDynamic));
+
+                return dict;
             }
-            else if (t == typeof(object) && allowDynamic)
+            case RubyCodes.UserDefined:
             {
-                list = new List<object>();
-                valueType = typeof(object);
+                if (_objectConversionMap.ContainsKey(e))
+                    return _objectConversionMap[e];
+
+                var ru = (RubyUserDefined)e;
+                var objectName = ru.GetRealClassName();
+                if (!_rubyObjectsClassMap.ContainsKey(objectName))
+                    throw new Exception($"Unsupported user-defined object [{objectName}]");
+
+                var c = DeserializeUserDefinedObject(_rubyObjectsClassMap[objectName], ru);
+
+                _objectConversionMap[e] = c;
+
+                return c;
             }
-            else
-                throw new Exception("Type does not implement IList");
-
-            _objectConversionMap[e] = list;
-
-            for (var i = 0; i < ra.Elements.Count; ++i)
+            case RubyCodes.Object:
             {
-                var vv = DeserializeEntity(valueType, ra.Elements[i], allowDynamic);
+                if (_objectConversionMap.ContainsKey(e))
+                    return _objectConversionMap[e];
 
-                if (vv != null && valueType != typeof(object) && valueType != vv.GetType())
-                    vv = ValueWrapper.ManualCast(valueType, vv);
-                
-                list.Add(vv);
+                var ro = (RubyObject)e;
+
+                var objectName = ro.GetRealClassName();
+                if (!_rubyObjectsClassMap.ContainsKey(objectName))
+                    throw new Exception($"Unsupported object [{objectName}]");
+
+                var c = DeserializeObject(_rubyObjectsClassMap[objectName], ro);
+
+                _objectConversionMap[e] = c;
+
+                return c;
             }
-
-            return list;
+            case RubyCodes.True:
+                return true;
+            case RubyCodes.False:
+                return false;
+            case RubyCodes.Nil:
+                return null;
+            case RubyCodes.FixNum:
+                return ((RubyFixNum)e).Value;
+            case RubyCodes.Float:
+                return ((RubyFloat)e).Value;
         }
 
-        if (e is RubyHash rh)
-        {
-            if (_objectConversionMap.ContainsKey(e))
-                return _objectConversionMap[e];
-
-            IDictionary dict;
-            Type keyType, valueType;
-            if (typeof(IDictionary).IsAssignableFrom(t))
-            {
-                dict = Activator.CreateInstance(t) as IDictionary;
-                (keyType, valueType) = SerializationHelper.Instance.SearchElementTypesForDictionary(t);
-            }
-            else if (t == typeof(object) && allowDynamic)
-            {
-                dict = new Dictionary<object, object>();
-                keyType = valueType = typeof(object);
-            }
-            else
-                throw new Exception("Type does not implement IList");
-
-            _objectConversionMap[e] = dict;
-
-            foreach (var re in rh.Pairs)
-                dict.Add(DeserializeEntity(keyType, re.Key, allowDynamic), DeserializeEntity(valueType, re.Value, allowDynamic));
-
-            return dict;
-        }
-
-        if (e is RubyUserDefined ru)
-        {
-            if (_objectConversionMap.ContainsKey(e))
-                return _objectConversionMap[e];
-
-            var objectName = ru.GetRealClassName();
-            if (!_rubyObjectsClassMap.ContainsKey(objectName))
-                throw new Exception($"Unsupported user-defined object [{objectName}]");
-
-            var c = DeserializeUserDefinedObject(_rubyObjectsClassMap[objectName], ru);
-
-            _objectConversionMap[e] = c;
-
-            return c;
-        }
-
-        if (e is RubyObject ro)
-        {
-            if (_objectConversionMap.ContainsKey(e))
-                return _objectConversionMap[e];
-
-            var objectName = ro.GetRealClassName();
-            if (!_rubyObjectsClassMap.ContainsKey(objectName))
-                throw new Exception($"Unsupported object [{objectName}]");
-
-            var c = DeserializeObject(_rubyObjectsClassMap[objectName], ro);
-
-            _objectConversionMap[e] = c;
-
-            return c;
-        }
-
-        throw new Exception($"Unsupported [{e.GetType()}]");
+        throw new Exception($"Unsupported Ruby object [{e.GetType()}]");
     }
 
     private object DeserializeInstanceVariable(Type type, RubyInstanceVariable riv, bool allowDynamic)
     {
         var res = DeserializeEntity(type, riv.Object, allowDynamic);
-        if (riv.Object is RubyString)
+        if (riv.Object.Code == RubyCodes.String)
         {
             if (riv.Variables.Count != 1)
                 throw new Exception($"{nameof(RubyString)} instance variable is expected 1 parameter");
@@ -316,7 +320,7 @@ public class RubyConverter
             // external encoding?
         }
         
-        if (riv.Object is not RubyString)
+        if (riv.Object.Code != RubyCodes.String)
         {
             Debug.WriteLine(123);
         }

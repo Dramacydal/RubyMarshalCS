@@ -6,7 +6,7 @@ namespace RubyMarshal;
 
 public class SerializationContext
 {
-    private readonly List<RubySymbol> _symbolInstances = new();
+    private readonly List<AbstractEntity> _symbolInstances = new();
     private readonly List<AbstractEntity> _objectInstances = new();
 
     private readonly ReaderSettings _settings = new();
@@ -18,18 +18,30 @@ public class SerializationContext
 
     public RubySymbol LookupSymbol(AbstractEntity symbolOrLink)
     {
-        if (symbolOrLink is RubySymbol s)
-            return s;
-        if (symbolOrLink is RubySymbolLink sl)
-            return sl.ReferenceId < _symbolInstances.Count ? _symbolInstances[sl.ReferenceId] : null;
+        if (symbolOrLink.Code == RubyCodes.Symbol)
+            return (RubySymbol)symbolOrLink;
+        if (symbolOrLink.Code == RubyCodes.SymbolLink)
+        {
+            var sl = (RubySymbolLink)symbolOrLink;
+
+            if (sl.ReferenceId < _symbolInstances.Count)
+                return (RubySymbol)_symbolInstances[sl.ReferenceId];
+            throw new Exception("Symbol link is out of bounds");
+        }
 
         throw new Exception("Entity is not symbol or link");
     }
 
     public AbstractEntity LookupObject(AbstractEntity objectOrLink)
     {
-        if (objectOrLink is RubyObjectLink ol)
-            return ol.ReferenceId < _objectInstances.Count ? _objectInstances[ol.ReferenceId] : null;
+        if (objectOrLink.Code == RubyCodes.ObjectLink)
+        {
+            var ol = (RubyObjectLink)objectOrLink;
+            if (ol.ReferenceId < _objectInstances.Count)
+                return _objectInstances[ol.ReferenceId];
+
+            throw new Exception("Object link is out of bounds");
+        }
 
         return objectOrLink;
     }
@@ -72,7 +84,7 @@ public class SerializationContext
         e!.Context = this;
 
         if (code == RubyCodes.Symbol)
-            _symbolInstances.Add(e as RubySymbol);
+            _symbolInstances.Add(e);
         else if (LinkableObjectTypes.Contains(code))
             _objectInstances.Add(e);
 
@@ -87,9 +99,9 @@ public class SerializationContext
 
         if (_settings.ResolveLinks)
         {
-            if (e is RubyObjectLink ol)
-                e = LookupObject(ol);
-            if (e is RubySymbolLink sl)
+            if (e.Code == RubyCodes.ObjectLink)
+                e = LookupObject(e);
+            else if (e.Code == RubyCodes.SymbolLink)
                 e = LookupSymbol(e);
         }
 
@@ -109,17 +121,16 @@ public class SerializationContext
 
             _objectInstances.Add(entity);
         }
-
-        if (entity is RubySymbol rs)
+        else if (entity.Code == RubyCodes.Symbol)
         {
-            var index = _symbolInstances.IndexOf(rs);
+            var index = _symbolInstances.IndexOf((RubySymbol)entity);
             if (index != -1)
             {
                 Write(writer, new RubySymbolLink() { ReferenceId = index });
                 return;
             }
 
-            _symbolInstances.Add(rs);
+            _symbolInstances.Add(entity);
         }
 
         writer.Write((byte)entity.Code);

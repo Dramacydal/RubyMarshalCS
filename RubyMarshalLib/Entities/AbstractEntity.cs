@@ -17,10 +17,10 @@ public abstract class AbstractEntity
 
     public AbstractEntity ResolveIfLink()
     {
-        if (this is RubySymbolLink sl)
-            return Context.LookupSymbol(sl);
-        if (this is RubyObjectLink ol)
-            return Context.LookupObject(ol);
+        if (Code == RubyCodes.SymbolLink)
+            return Context.LookupSymbol(this);
+        if (Code == RubyCodes.ObjectLink)
+            return Context.LookupObject(this);
 
         return this;
     }

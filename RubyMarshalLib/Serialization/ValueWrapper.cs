@@ -69,10 +69,10 @@ class ValueWrapper
         {
             if (typeof(IList).IsAssignableFrom(Property.PropertyType))
             {
-                list = Property.GetValue(Object) as IList;
+                list = (IList)Property.GetValue(Object);
                 if (list == null)
                 {
-                    list = Activator.CreateInstance(Property.PropertyType) as IList;
+                    list = (IList)Activator.CreateInstance(Property.PropertyType);
                     Property.SetValue(Object, list);
                 }
             }
@@ -89,7 +89,7 @@ class ValueWrapper
         {
             if (typeof(IList).IsAssignableFrom(Field.FieldType))
             {
-                list = Field.GetValue(Object) as IList;
+                list = (IList)Field.GetValue(Object);
                 if (list == null)
                 {
                     list = Activator.CreateInstance(Field.FieldType) as IList;
