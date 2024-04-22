@@ -68,7 +68,6 @@ public class SerializationContext
         if (!CodeToObjectTypeMap.TryGetValue(code, out var type))
             throw new Exception($"Unsupported code {code}");
 
-
         var e = Activator.CreateInstance(type) as AbstractEntity;
         e!.Context = this;
 

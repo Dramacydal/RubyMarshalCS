@@ -13,10 +13,10 @@ public class RubyReader
 
     private SerializationContext Context { get; }
 
-    public RubyReader(ReaderSettings settings = null)
+    public RubyReader(ReaderSettings? settings = null)
     {
         Context = new SerializationContext(settings);
-        _settings = settings ?? _settings;
+        _settings = settings ?? new();
     }
 
     public void Read(BinaryReader r)

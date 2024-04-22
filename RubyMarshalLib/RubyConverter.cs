@@ -1,16 +1,25 @@
 ﻿using System.Collections;
+using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 using RubyMarshal.Entities;
 using RubyMarshal.Serialization;
+using RubyMarshal.Settings;
+using RubyMarshal.SpecialTypes;
 
 namespace RubyMarshal;
 
-public static class RubyConverter
+public class RubyConverter
 {
     private static Dictionary<string, Type> _classMap = new();
 
     private static Dictionary<Type, Type> _customSerializersByType = new();
+    private readonly ReaderSettings _settings;
+
+    private RubyConverter(ReaderSettings? settings = null)
+    {
+        _settings = settings ?? new();
+    }
 
     static RubyConverter()
     {
@@ -45,6 +54,7 @@ public static class RubyConverter
         if (_customSerializersByType.ContainsKey(type))
             throw new Exception($"Custom serializer for class [{type}] already registered");
 
+        // TODO: by default read/write bytes ?
         var found = false;
         foreach (var i in serializer.GetInterfaces())
         {
@@ -66,136 +76,33 @@ public static class RubyConverter
         _customSerializersByType[type] = serializer;
     }
 
-    class ValueWrapper
-    {
-        public object Object { get; set; }
-        public PropertyInfo? Property { get; set; }
-        public FieldInfo? Field { get; set; }
-
-        public Type Type => Property?.PropertyType ?? Field?.FieldType;
-
-        public void SetValue(object Value)
-        {
-            if (Value is IList list)
-            {
-                AddListElements(list);
-                return;
-            }
-
-            if (Value is IDictionary dictionary)
-            {
-                AddDictionaryElements(dictionary);
-                return;
-            }
-
-            Property?.SetValue(Object, Value);
-            Field?.SetValue(Object, Value);
-        }
-
-        private void AddListElements(IList values)
-        {
-            if (Property != null)
-            {
-                if (typeof(IList).IsAssignableFrom(Property.PropertyType))
-                {
-                    var list = Property.GetValue(Object) as IList;
-                    if (list == null)
-                    {
-                        list = Activator.CreateInstance(Property.PropertyType) as IList;
-                        Property.SetValue(Object, list);
-                    }
-
-                    foreach (var e in values)
-                        list?.Add(e);
-                }
-                else
-                    throw new Exception($"Property [{Property.Name}] does not implement IList interface");
-            }
-
-            if (Field != null)
-            {
-                if (typeof(IList).IsAssignableFrom(Field.FieldType))
-                {
-                    var list = Field.GetValue(Object) as IList;
-                    if (list == null)
-                    {
-                        list = Activator.CreateInstance(Field.FieldType) as IList;
-                        Field.SetValue(Object, list);
-                    }
-
-                    foreach (var e in values)
-                        list?.Add(e);
-                }
-                else
-                    throw new Exception($"Field [{Field.Name}] does not implement IList interface");
-            }
-        }
-
-        private void AddDictionaryElements(IDictionary values)
-        {
-            if (Property != null)
-            {
-                if (typeof(IDictionary).IsAssignableFrom(Property.PropertyType))
-                {
-                    var dictionary = Property.GetValue(Object) as IDictionary;
-                    if (dictionary == null)
-                    {
-                        dictionary = Activator.CreateInstance(Property.PropertyType) as IDictionary;
-                        Property.SetValue(Object, dictionary);
-                    }
-
-                    foreach (DictionaryEntry e in values)
-                        dictionary?.Add(e.Key, e.Value);
-                }
-                else
-                    throw new Exception($"Property [{Property.Name}] does not implement IDictionary interface");
-            }
-
-            if (Field != null)
-            {
-                if (typeof(IDictionary).IsAssignableFrom(Field.FieldType))
-                {
-                    var dictionary = Field.GetValue(Object) as IDictionary;
-                    if (dictionary == null)
-                    {
-                        dictionary = Activator.CreateInstance(Field.FieldType) as IDictionary;
-                        Field.SetValue(Object, dictionary);
-                    }
-
-                    foreach (DictionaryEntry e in values)
-                        dictionary?.Add(e.Key, e.Value);
-                }
-                else
-                    throw new Exception($"Field [{Field.Name}] does not implement IDictionary interface");
-            }
-        }
-    }
-
-    public static T Deserialize<T>(string path)
+    public static T Deserialize<T>(string path, ReaderSettings? settings = null)
     {
         using var file = File.OpenRead(path);
         using var reader = new BinaryReader(file);
 
-        var r = Deserialize<T>(reader);
+        var r = Deserialize<T>(reader, settings);
 
         return r;
     }
 
-    public static T Deserialize<T>(BinaryReader reader)
+    public static T Deserialize<T>(BinaryReader reader, ReaderSettings? settings = null)
     {
-        var rubyReader = new RubyReader();
+        var rubyReader = new RubyReader(settings);
         rubyReader.Read(reader);
 
-        var r = Deserialize<T>(rubyReader.Root);
+        var r = Deserialize<T>(rubyReader.Root, settings);
         return r;
     }
 
-    public static T Deserialize<T>(AbstractEntity data)
+    public static T Deserialize<T>(AbstractEntity data, ReaderSettings? settings = null)
     {
-        return (T)InitFromObject(typeof(T), data);
+        var instance = new RubyConverter(settings);
+
+        return (T)instance.DeserializeEntity(typeof(T), data, typeof(T) == typeof(object));
     }
 
-    private static object DeserializeObject(Type type, RubyObject data)
+    private object DeserializeObject(Type type, RubyObject data)
     {
         var obj = Activator.CreateInstance(type);
 
@@ -241,14 +148,14 @@ public static class RubyConverter
                         continue;
                 }
 
-                w.SetValue(InitFromObject(w.Type, value));
+                w.SetValue(DeserializeEntity(w.Type, value, candidate.IsDynamic), candidate.IsDynamic);
             }
         }
 
         return obj;
     }
 
-    private static object InitFromObject(Type t, AbstractEntity e)
+    private object DeserializeEntity(Type t, AbstractEntity e, bool allowDynamic)
     {
         e = e.ResolveIfLink();
 
@@ -265,10 +172,7 @@ public static class RubyConverter
                 return list;
             }
 
-            if (t == typeof(object))
-                return rst.Bytes;
-
-            return Encoding.UTF8.GetString(rst.Bytes);
+            return new SpecialString(rst.Bytes, Encoding.UTF8);
         }
 
         if (e is RubyFixNum rfn)
@@ -277,9 +181,8 @@ public static class RubyConverter
         if (e is RubyFloat rfl)
             return rfl.Value;
 
-        // TODO: args
         if (e is RubyInstanceVariable riv)
-            return InitFromObject(t, riv.Object);
+            return DeserializeInstanceVariable(t, riv, allowDynamic);
 
         if (e is RubyTrue)
             return true;
@@ -292,38 +195,55 @@ public static class RubyConverter
 
         if (e is RubyArray ra)
         {
-            if (!typeof(IList).IsAssignableFrom(t))
+            IList list;
+            Type valueType;
+            if (typeof(IList).IsAssignableFrom(t))
+            {
+                list = Activator.CreateInstance(t) as IList;
+                valueType = SerializationHelper.Instance.SearchElementTypeForList(t);
+            }
+            else if (t == typeof(object) && allowDynamic)
+            {
+                list = new List<object>();
+                valueType = typeof(object);
+            }
+            else
                 throw new Exception("Type does not implement IList");
 
-            var list = Activator.CreateInstance(t) as IList;
-
-            foreach (var re in ra.Elements)
-                list.Add(InitFromObject(SerializationHelper.Instance.SearchElementTypeForList(t), re));
+            for (var i = 0; i < ra.Elements.Count; ++i)
+                list.Add(DeserializeEntity(valueType, ra.Elements[i], allowDynamic));
 
             return list;
         }
 
         if (e is RubyHash rh)
         {
-            if (!typeof(IDictionary).IsAssignableFrom(t))
+            IDictionary dict;
+            Type keyType, valueType;
+            if (typeof(IDictionary).IsAssignableFrom(t))
+            {
+                dict = Activator.CreateInstance(t) as IDictionary;
+                (keyType, valueType) = SerializationHelper.Instance.SearchElementTypesForDictionary(t);
+            }
+            else if (t == typeof(object) && allowDynamic)
+            {
+                dict = new Dictionary<object, object>();
+                keyType = valueType = typeof(object);
+            }
+            else
                 throw new Exception("Type does not implement IList");
 
-            var dict = Activator.CreateInstance(t) as IDictionary;
-
             foreach (var re in rh.Pairs)
-            {
-                var types = SerializationHelper.Instance.SearchElementTypesForDictionary(t);
-
-                dict.Add(InitFromObject(types.Item1, re.Key), InitFromObject(types.Item2, re.Value));
-            }
+                dict.Add(DeserializeEntity(keyType, re.Key, allowDynamic), DeserializeEntity(valueType, re.Value, allowDynamic));
 
             return dict;
         }
 
         if (e is RubyUserDefined ru)
         {
-            if (t == typeof(object))
-                return ru;
+            // TODO:
+            // if (t == typeof(object))
+            //     return ru;
 
             var objectName = ru.GetRealClassName();
             if (_classMap.ContainsKey(objectName))
@@ -334,8 +254,9 @@ public static class RubyConverter
 
         if (e is RubyObject ro)
         {
-            if (t == typeof(object))
-                return ro;
+            // TODO:
+            // if (t == typeof(object))
+            //     return ro;
 
             var objectName = ro.GetRealClassName();
             if (_classMap.ContainsKey(objectName))
@@ -351,7 +272,27 @@ public static class RubyConverter
         throw new Exception($"Unsupported [{e.GetType()}]");
     }
 
-    private static object DeserializeUserDefinedObject(Type type, RubyUserDefined data)
+    private object DeserializeInstanceVariable(Type type, RubyInstanceVariable riv, bool allowDynamic)
+    {
+        var res = DeserializeEntity(type, riv.Object, allowDynamic);
+        if (riv.Object is RubyString)
+        {
+            if (riv.Variables.Count != 1)
+                throw new Exception($"{nameof(RubyString)} instance variable is expected 1 parameter");
+            
+            // always: E => true
+            // external encoding?
+        }
+        
+        if (riv.Object is not RubyString)
+        {
+            Debug.WriteLine(123);
+        }
+            
+        return res;
+    }
+
+    private object DeserializeUserDefinedObject(Type type, RubyUserDefined data)
     {
         var obj = Activator.CreateInstance(type);
 

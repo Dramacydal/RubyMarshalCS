@@ -23,6 +23,7 @@ public class SerializationHelper
     {
         public CandidateType Type { get; set; }
         public string Name { get; set; }
+        public bool IsDynamic { get; set; }
     }
 
     public class TypeCandidateInfo
@@ -46,23 +47,23 @@ public class SerializationHelper
         if (info.FieldCandidates.ContainsKey(fieldName))
             return info.FieldCandidates[fieldName];
 
-        var strippedName = fieldName.StartsWith('@') ? fieldName.Substring(1) : fieldName;
-
-        var prop = type.GetProperty(strippedName);
-        if (prop != null)
-            return new()
-            {
-                Type = CandidateType.Property,
-                Name = prop.Name
-            };
-
-        var field = type.GetField(strippedName);
-        if (field != null)
-            return new()
-            {
-                Type = CandidateType.Field,
-                Name = field.Name
-            };
+        // var strippedName = fieldName.StartsWith('@') ? fieldName.Substring(1) : fieldName;
+        //
+        // var prop = type.GetProperty(strippedName);
+        // if (prop != null)
+        //     return new()
+        //     {
+        //         Type = CandidateType.Property,
+        //         Name = prop.Name
+        //     };
+        //
+        // var field = type.GetField(strippedName);
+        // if (field != null)
+        //     return new()
+        //     {
+        //         Type = CandidateType.Field,
+        //         Name = field.Name
+        //     };
 
         return null;
     }
@@ -73,9 +74,22 @@ public class SerializationHelper
         return info?.ExtensionDataCandidate;
     }
 
+    public bool IsDynamicFieldOrProperty(Type type, string name)
+    {
+        var info = GetTypeCandidateInfo(type);
+
+        if (!info.FieldCandidates.ContainsKey(name))
+            return false;
+
+        var c = info.FieldCandidates[name];
+
+        return c.IsDynamic;
+    }
+
     private void AttributeChecker(CandidateType candidateType, string name, MemberInfo type, TypeCandidateInfo info)
     {
-        foreach (var attr in type.GetCustomAttributes(true))
+        var attributes = type.GetCustomAttributes(true);
+        foreach (var attr in attributes)
         {
             if (attr is RubyPropertyAttribute ra)
             {
@@ -86,7 +100,8 @@ public class SerializationHelper
                 info.FieldCandidates[ra.Name] = new()
                 {
                     Type = candidateType,
-                    Name = name
+                    Name = name,
+                    IsDynamic = attributes.Any(_ => _ is RubyDynamicPropertyAttribute) 
                 };
             }
 
@@ -95,13 +110,13 @@ public class SerializationHelper
                 if (type is PropertyInfo pi)
                 {
                     if (pi.PropertyType != typeof(Dictionary<string, AbstractEntity>))
-                        throw new Exception("RubyExtensionAttribute on wrong property type");
+                        throw new Exception("RubyExtensionAttribute on wrong property type, must be Dictionary<string, AbstractEntity>");
                 }
                 
                 if (type is FieldInfo fi)
                 {
                     if (fi.FieldType != typeof(Dictionary<string, AbstractEntity>))
-                        throw new Exception("RubyExtensionAttribute on wrong field type");
+                        throw new Exception("RubyExtensionAttribute on wrong field type, must be Dictionary<string, AbstractEntity>");
                 }
 
                 info.ExtensionDataCandidate = new()
@@ -113,7 +128,7 @@ public class SerializationHelper
         }
     }
 
-    private TypeCandidateInfo GetTypeCandidateInfo(Type type)
+    public TypeCandidateInfo GetTypeCandidateInfo(Type type)
     {
         if (_infos.ContainsKey(type))
             return _infos[type];
@@ -176,7 +191,6 @@ public class SerializationHelper
         Type? result = null;
         if (!_elementTypeForListMap.ContainsKey(type))
         {
-
             for (;;)
             {
                 var g = SearchTypeForGenericList(type);

@@ -2,7 +2,7 @@
 
 namespace RubyMarshal;
 
-public static class BinaryExtensions
+public static class LibExtensions
 {
     public static int ReadFixNum(this BinaryReader r)
     {
