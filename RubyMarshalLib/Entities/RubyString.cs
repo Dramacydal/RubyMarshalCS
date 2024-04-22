@@ -1,5 +1,4 @@
-﻿using System.Text;
-using RubyMarshal.Enums;
+﻿using RubyMarshal.Enums;
 
 namespace RubyMarshal.Entities;
 

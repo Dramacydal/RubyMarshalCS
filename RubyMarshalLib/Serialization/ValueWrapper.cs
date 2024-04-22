@@ -46,7 +46,7 @@ class ValueWrapper
         }
     }
 
-    private static object ManualCast(Type type, object o)
+    public static object ManualCast(Type type, object o)
     {
         if (o.GetType() != typeof(SpecialString))
         {

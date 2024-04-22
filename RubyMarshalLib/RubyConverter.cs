@@ -11,10 +11,13 @@ namespace RubyMarshal;
 
 public class RubyConverter
 {
-    private static Dictionary<string, Type> _classMap = new();
+    private readonly ReaderSettings _settings;
+
+    private static Dictionary<string, Type> _rubyObjectsClassMap = new();
 
     private static Dictionary<Type, Type> _customSerializersByType = new();
-    private readonly ReaderSettings _settings;
+
+    private Dictionary<object, object> _objectConversionMap = new();
 
     private RubyConverter(ReaderSettings? settings = null)
     {
@@ -28,25 +31,18 @@ public class RubyConverter
         foreach (var attr in t.GetCustomAttributes())
         {
             if (attr.GetType() == typeof(RubyObjectAttribute))
-            {
                 RegisterClass((attr as RubyObjectAttribute).Name, t);
-                continue;
-            }
-
-            if (attr.GetType() == typeof(RubyCustomSerializerAttribute))
-            {
+            else if (attr.GetType() == typeof(RubyCustomSerializerAttribute))
                 RegisterCustomSerializer(t, (attr as RubyCustomSerializerAttribute).Type);
-                continue;
-            }
         }
     }
 
     public static void RegisterClass(string name, Type type)
     {
-        if (_classMap.ContainsKey(name))
+        if (_rubyObjectsClassMap.ContainsKey(name))
             throw new Exception($"Class [{name}] already registered");
 
-        _classMap[name] = type;
+        _rubyObjectsClassMap[name] = type;
     }
 
     public static void RegisterCustomSerializer(Type type, Type serializer)
@@ -111,7 +107,7 @@ public class RubyConverter
             var fieldName = key.ResolveIfLink().ToString();
 
             var candidate = SerializationHelper.Instance.GetFieldCandidate(type, fieldName);
-            if (candidate == null || data is RubyUserDefined)
+            if (candidate == null/* || data is RubyUserDefined*/)
             {
                 var extensionCandidate = SerializationHelper.Instance.GetExtensionDataCandidate(type);
                 if (extensionCandidate != null)
@@ -148,7 +144,15 @@ public class RubyConverter
                         continue;
                 }
 
-                w.SetValue(DeserializeEntity(w.Type, value, candidate.IsDynamic), candidate.IsDynamic);
+                if (typeof(AbstractDynamicProperty).IsAssignableFrom(w.Type))
+                {
+                    var dynamicInstance = Activator.CreateInstance(w.Type) as AbstractDynamicProperty;
+                    dynamicInstance.Set(DeserializeEntity(typeof(object), value, true));
+
+                    w.SetValue(dynamicInstance, candidate.IsDynamic);
+                }
+                else
+                    w.SetValue(DeserializeEntity(w.Type, value, candidate.IsDynamic), candidate.IsDynamic);
             }
         }
 
@@ -182,7 +186,16 @@ public class RubyConverter
             return rfl.Value;
 
         if (e is RubyInstanceVariable riv)
-            return DeserializeInstanceVariable(t, riv, allowDynamic);
+        {
+            if (_objectConversionMap.ContainsKey(e))
+                return _objectConversionMap[e];
+
+            var c = DeserializeInstanceVariable(t, riv, allowDynamic);
+            
+            _objectConversionMap[e] = c;
+
+            return c;
+        }
 
         if (e is RubyTrue)
             return true;
@@ -195,6 +208,9 @@ public class RubyConverter
 
         if (e is RubyArray ra)
         {
+            if (_objectConversionMap.ContainsKey(e))
+                return _objectConversionMap[e];
+
             IList list;
             Type valueType;
             if (typeof(IList).IsAssignableFrom(t))
@@ -210,14 +226,26 @@ public class RubyConverter
             else
                 throw new Exception("Type does not implement IList");
 
+            _objectConversionMap[e] = list;
+
             for (var i = 0; i < ra.Elements.Count; ++i)
-                list.Add(DeserializeEntity(valueType, ra.Elements[i], allowDynamic));
+            {
+                var vv = DeserializeEntity(valueType, ra.Elements[i], allowDynamic);
+
+                if (vv != null && valueType != typeof(object) && valueType != vv.GetType())
+                    vv = ValueWrapper.ManualCast(valueType, vv);
+                
+                list.Add(vv);
+            }
 
             return list;
         }
 
         if (e is RubyHash rh)
         {
+            if (_objectConversionMap.ContainsKey(e))
+                return _objectConversionMap[e];
+
             IDictionary dict;
             Type keyType, valueType;
             if (typeof(IDictionary).IsAssignableFrom(t))
@@ -233,6 +261,8 @@ public class RubyConverter
             else
                 throw new Exception("Type does not implement IList");
 
+            _objectConversionMap[e] = dict;
+
             foreach (var re in rh.Pairs)
                 dict.Add(DeserializeEntity(keyType, re.Key, allowDynamic), DeserializeEntity(valueType, re.Value, allowDynamic));
 
@@ -241,32 +271,34 @@ public class RubyConverter
 
         if (e is RubyUserDefined ru)
         {
-            // TODO:
-            // if (t == typeof(object))
-            //     return ru;
+            if (_objectConversionMap.ContainsKey(e))
+                return _objectConversionMap[e];
 
             var objectName = ru.GetRealClassName();
-            if (_classMap.ContainsKey(objectName))
-                return DeserializeUserDefinedObject(_classMap[objectName], ru);
+            if (!_rubyObjectsClassMap.ContainsKey(objectName))
+                throw new Exception($"Unsupported user-defined object [{objectName}]");
 
-            throw new Exception($"Unsupported user-defined object [{objectName}]");
+            var c = DeserializeUserDefinedObject(_rubyObjectsClassMap[objectName], ru);
+
+            _objectConversionMap[e] = c;
+
+            return c;
         }
 
         if (e is RubyObject ro)
         {
-            // TODO:
-            // if (t == typeof(object))
-            //     return ro;
+            if (_objectConversionMap.ContainsKey(e))
+                return _objectConversionMap[e];
 
             var objectName = ro.GetRealClassName();
-            if (_classMap.ContainsKey(objectName))
-            {
-                var type = _classMap[objectName];
+            if (!_rubyObjectsClassMap.ContainsKey(objectName))
+                throw new Exception($"Unsupported object [{objectName}]");
 
-                return DeserializeObject(type, ro);
-            }
+            var c = DeserializeObject(_rubyObjectsClassMap[objectName], ro);
 
-            throw new Exception($"Unsupported object [{objectName}]");
+            _objectConversionMap[e] = c;
+
+            return c;
         }
 
         throw new Exception($"Unsupported [{e.GetType()}]");
