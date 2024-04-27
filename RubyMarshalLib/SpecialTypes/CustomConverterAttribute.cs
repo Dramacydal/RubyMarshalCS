@@ -1,9 +1,9 @@
-﻿namespace RubyMarshal.SpecialTypes;
+﻿namespace RubyMarshalCS.SpecialTypes;
 
 [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
 public class CustomConverterAttribute : Attribute
 {
-    public Type Type { get; set; }
+    public Type Type { get; }
 
     public CustomConverterAttribute(Type t)
     {

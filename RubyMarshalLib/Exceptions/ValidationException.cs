@@ -1,4 +1,4 @@
-﻿namespace RubyMarshal.Exceptions;
+﻿namespace RubyMarshalCS.Exceptions;
 
 public class ValidationException : Exception
 {

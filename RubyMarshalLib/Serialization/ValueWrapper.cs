@@ -1,21 +1,31 @@
 ﻿using System.Reflection;
 
-namespace RubyMarshal.Serialization;
+namespace RubyMarshalCS.Serialization;
 
 class ValueWrapper
 {
-    public object Object { get; set; }
-    public PropertyInfo? Property { get; set; }
-    public FieldInfo? Field { get; set; }
+    private readonly object _object;
+    private readonly PropertyInfo? _property;
+    private readonly FieldInfo? _field;
 
-    public Type Type => Property?.PropertyType ?? Field?.FieldType;
-
-    public void SetValue(object Value, bool allowDynamic = false)
+    public ValueWrapper(object obj, PropertyInfo property)
     {
-        if (Property != null)
-            Property?.SetValue(Object, SerializationHelper.AssignmentConversion(Property.PropertyType, Value, allowDynamic));
+        _object = obj;
+        _property = property;
+    }
 
-        if (Field != null)
-            Field?.SetValue(Object, SerializationHelper.AssignmentConversion(Field.FieldType, Value, allowDynamic));
+    public ValueWrapper(object obj, FieldInfo field)
+    {
+        _object = obj;
+        _field = field;
+    }
+
+    public void SetValue(object? value, bool allowDynamic = false)
+    {
+        if (_property != null)
+            _property?.SetValue(_object, SerializationHelper.AssignmentConversion(_property.PropertyType, value, allowDynamic));
+
+        if (_field != null)
+            _field?.SetValue(_object, SerializationHelper.AssignmentConversion(_field.FieldType, value, allowDynamic));
     }
 }

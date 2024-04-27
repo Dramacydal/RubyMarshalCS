@@ -1,71 +1,41 @@
 ﻿using System.Globalization;
 using System.Text;
-using RubyMarshal.Enums;
+using RubyMarshalCS.Enums;
 
-namespace RubyMarshal.Entities;
+namespace RubyMarshalCS.Entities;
 
 public class RubyFloat : AbstractEntity
 {
-    public FloatType Type { get; set; }
-    public float Value { get; set; }
-
-    public byte[] RawBytes;
+    public double Value { get; set; }
 
     public override RubyCodes Code { get; protected set; } = RubyCodes.Float;
 
-    public override void ReadData(BinaryReader r)
+    public override void ReadData(BinaryReader reader)
     {
-        var len = r.ReadFixNum();
-        var rawBytes = r.ReadBytes(len);
-        RawBytes = rawBytes;
-        var bytes = rawBytes.TakeWhile(_ => _ != 0).ToArray();
+        var bytes = reader.ReadByteSequence().TakeWhile(_ => _ != 0).ToArray();
         var str = Encoding.ASCII.GetString(bytes);
 
-        Value = 0.0f;
-        Type = FloatType.Normal;
-        
-        switch (str)
+        Value = str switch
         {
-            case "inf":
-                Type = FloatType.Inf;
-                break;
-            case "-inf":
-                Type = FloatType.NegInf;
-                break;
-            case "nan":
-                Type = FloatType.NaN;
-                break;
-            default:
-                Value = float.Parse(str, CultureInfo.InvariantCulture);
-                break;
-        }
+            "inf" => double.PositiveInfinity,
+            "-inf" => double.NegativeInfinity,
+            "nan" => double.NaN,
+            _ => double.Parse(str, CultureInfo.InvariantCulture)
+        };
     }
 
-    public override void WriteData(BinaryWriter w)
+    public override void WriteData(BinaryWriter writer)
     {
-        // w.WritePackedInt(RawBytes.Length);
-        // w.Write(RawBytes);
-        // return;
-        
-        switch (Type)
+        if (double.IsNaN(Value))
+            writer.WriteByteSequence(Encoding.ASCII.GetBytes("nan"));
+        else if (double.IsPositiveInfinity(Value))
+            writer.WriteByteSequence(Encoding.ASCII.GetBytes("inf"));
+        else if (double.IsNegativeInfinity(Value))
+            writer.WriteByteSequence(Encoding.ASCII.GetBytes("-inf"));
+        else
         {
-            case FloatType.Normal:
-                var str = Value.ToString(CultureInfo.InvariantCulture);
-                w.WriteFixNum(str.Length);
-                w.Write(Encoding.ASCII.GetBytes(str));
-                break;
-            case FloatType.Inf:
-                w.WriteFixNum(3);
-                w.Write(Encoding.ASCII.GetBytes("inf"));
-                break;
-            case FloatType.NegInf:
-                w.WriteFixNum(4);
-                w.Write(Encoding.ASCII.GetBytes("-inf"));
-                break;
-            case FloatType.NaN:
-                w.WriteFixNum(3);
-                w.Write(Encoding.ASCII.GetBytes("nan"));
-                break;
+            var str = Value.ToString(CultureInfo.InvariantCulture);
+            writer.WriteByteSequence(Encoding.ASCII.GetBytes(str));
         }
     }
 }

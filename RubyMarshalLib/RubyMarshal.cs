@@ -1,31 +1,65 @@
-﻿using RubyMarshal.Settings;
+﻿using RubyMarshalCS.Entities;
+using RubyMarshalCS.Settings;
 
-namespace RubyMarshal;
+namespace RubyMarshalCS;
 
-public class RubyMarshal
+public static class RubyMarshal
 {
-    public static T Load<T>(string path, ReaderSettings? settings = null)
+    private const ushort HeaderMagic = 0x804;
+    
+    public static T? Load<T>(string path, ReaderSettings? settings = null)
     {
-        return Load<T>(File.OpenRead(path), settings);
+        using var reader = new BinaryReader(File.OpenRead(path));
+
+        return Load<T>(reader, settings);
     }
 
-    public static T Load<T>(Stream reader, ReaderSettings? settings = null)
+    public static T? Load<T>(BinaryReader reader, ReaderSettings? settings = null)
     {
-        using var binaryReader = new BinaryReader(reader);
-
-        return Load<T>(binaryReader, settings);
+        return RubyDeserializer.Deserialize<T>(Load(reader, settings), settings);
     }
 
-    public static T Load<T>(BinaryReader reader, ReaderSettings? settings = null)
+    public static AbstractEntity Load(string path, ReaderSettings? settings = null)
     {
-        RubyReader rubyReader = new(settings);
-        rubyReader.Read(reader);
+        using var reader = new BinaryReader(File.OpenRead(path));
 
-        return Load<T>(rubyReader, settings);
+        return Load(reader, settings);
     }
 
-    public static T Load<T>(RubyReader reader, ReaderSettings? settings = null)
+    public static AbstractEntity Load(BinaryReader reader, ReaderSettings? settings = null)
     {
-        return RubyDeserializer.Deserialize<T>(reader.Root, settings);
+        var version = reader.ReadUInt16();
+        if (version != HeaderMagic)
+            throw new Exception($"Wrong ruby serializer version: {version}");
+
+        return new SerializationContext(settings).Read(reader);
+    }
+
+    public static void Dump<T>(string path, T? obj)
+    {
+        var entity = RubySerializer.Serialize(obj);
+        
+        Dump(path, entity);
+    }
+
+    public static void Dump<T>(BinaryWriter writer, T? obj)
+    {
+        var entity = RubySerializer.Serialize(obj);
+        
+        Dump(writer, entity);
+    }
+    
+    public static void Dump(string path, AbstractEntity entity)
+    {
+        using var writer = new BinaryWriter(File.Open(path, FileMode.Create));
+
+        Dump(writer, entity);
+    }
+
+    public static void Dump(BinaryWriter writer, AbstractEntity entity)
+    {
+        writer.Write(HeaderMagic);
+
+        new SerializationContext().Write(writer, entity);
     }
 }

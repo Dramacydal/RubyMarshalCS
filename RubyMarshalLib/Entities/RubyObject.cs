@@ -1,39 +1,39 @@
-﻿using RubyMarshal.Enums;
+﻿using RubyMarshalCS.Enums;
 
-namespace RubyMarshal.Entities;
+namespace RubyMarshalCS.Entities;
 
 public class RubyObject : AbstractEntity
 {
     public AbstractEntity ClassName { get; set; }
     
-    public List<KeyValuePair<AbstractEntity, AbstractEntity>> Fields = new();
+    public List<KeyValuePair<AbstractEntity, AbstractEntity>> Fields { get; } = new();
 
     public override RubyCodes Code { get; protected set; } = RubyCodes.Object;
 
-    public override void ReadData(BinaryReader r)
+    public override void ReadData(BinaryReader reader)
     {
-        ClassName = Context.Read(r);
+        ClassName = Context.Read(reader);
 
-        var propCnt = r.ReadFixNum();
+        var propCnt = reader.ReadFixNum();
 
         for (var i = 0; i < propCnt; ++i)
         {
-            var k = Context.Read(r);
-            var v = Context.Read(r);
+            var k = Context.Read(reader);
+            var v = Context.Read(reader);
 
             Fields.Add(new(k, v));
         }
     }
 
-    public override void WriteData(BinaryWriter w)
+    public override void WriteData(BinaryWriter writer)
     {
-        Context.Write(w, ClassName);
-        w.WriteFixNum(Fields.Count);
+        Context.Write(writer, ClassName);
+        writer.WriteFixNum(Fields.Count);
 
         foreach (var field in Fields)
         {
-            Context.Write(w, field.Key);
-            Context.Write(w, field.Value);
+            Context.Write(writer, field.Key);
+            Context.Write(writer, field.Value);
         }
     }
 

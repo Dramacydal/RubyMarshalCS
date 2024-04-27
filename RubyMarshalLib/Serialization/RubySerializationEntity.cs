@@ -1,6 +1,6 @@
-﻿using RubyMarshal.Entities;
+﻿using RubyMarshalCS.Entities;
 
-namespace RubyMarshal.Serialization;
+namespace RubyMarshalCS.Serialization;
 
 public abstract class RubySerializationEntity
 {

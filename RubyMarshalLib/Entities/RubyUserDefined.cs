@@ -1,6 +1,6 @@
-﻿using RubyMarshal.Enums;
+﻿using RubyMarshalCS.Enums;
 
-namespace RubyMarshal.Entities;
+namespace RubyMarshalCS.Entities;
 
 public class RubyUserDefined : AbstractEntity
 {
@@ -10,24 +10,22 @@ public class RubyUserDefined : AbstractEntity
 
     public override RubyCodes Code { get; protected set; } = RubyCodes.UserDefined;
 
-    public override void ReadData(BinaryReader r)
+    public override void ReadData(BinaryReader reader)
     {
-        ClassName = Context.Read(r);
+        ClassName = Context.Read(reader);
 
-        var len = r.ReadFixNum();
-        Bytes = r.ReadBytes(len);
+        Bytes = reader.ReadByteSequence();
     }
 
-    public override void WriteData(BinaryWriter w)
+    public override void WriteData(BinaryWriter writer)
     {
-        Context.Write(w, ClassName);
-        w.WriteFixNum(Bytes.Length);
-        w.Write(Bytes);
+        Context.Write(writer, ClassName);
+        writer.WriteByteSequence(Bytes);
     }
 
     public string GetRealClassName()
     {
-        return ClassName.ResolveIfLink().ToString();
+        return ClassName.ResolveIfLink().ToString()!;
     }
 
     public override string ToString()

@@ -1,7 +1,7 @@
 ﻿using System.Text;
-using RubyMarshal.Enums;
+using RubyMarshalCS.Enums;
 
-namespace RubyMarshal.Entities;
+namespace RubyMarshalCS.Entities;
 
 public class RubySymbol : AbstractEntity
 {
@@ -9,19 +9,16 @@ public class RubySymbol : AbstractEntity
 
     public override RubyCodes Code { get; protected set; } = RubyCodes.Symbol;
 
-    public override void ReadData(BinaryReader r)
+    public override void ReadData(BinaryReader reader)
     {
-        var len = r.ReadFixNum();
-
-        Name = Encoding.UTF8.GetString(r.ReadBytes(len));
+        Name = Encoding.UTF8.GetString(reader.ReadByteSequence());
     }
 
-    public override void WriteData(BinaryWriter w)
+    public override void WriteData(BinaryWriter writer)
     {
         var bytes = Encoding.UTF8.GetBytes(Name);
         
-        w.WriteFixNum(bytes.Length);
-        w.Write(bytes);
+        writer.WriteByteSequence(bytes);
     }
 
     public override string ToString()

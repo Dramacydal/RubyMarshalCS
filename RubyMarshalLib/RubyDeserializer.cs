@@ -1,39 +1,23 @@
 ﻿using System.Collections;
 using System.Diagnostics;
 using System.Text;
-using RubyMarshal.Entities;
-using RubyMarshal.Enums;
-using RubyMarshal.Serialization;
-using RubyMarshal.Settings;
-using RubyMarshal.SpecialTypes;
+using RubyMarshalCS.Entities;
+using RubyMarshalCS.Enums;
+using RubyMarshalCS.Serialization;
+using RubyMarshalCS.Settings;
+using RubyMarshalCS.SpecialTypes;
 
-namespace RubyMarshal;
+namespace RubyMarshalCS;
 
 public class RubyDeserializer
 {
     private readonly ReaderSettings _settings;
 
-    private Dictionary<object, object> _objectConversionMap = new();
+    private readonly Dictionary<object, object> _objectConversionMap = new();
 
     private RubyDeserializer(ReaderSettings? settings = null)
     {
         _settings = settings ?? new();
-    }
-
-    public static T? Deserialize<T>(string path, ReaderSettings? settings = null)
-    {
-        using var file = File.OpenRead(path);
-        using var reader = new BinaryReader(file);
-
-        return Deserialize<T>(reader, settings);;
-    }
-
-    public static T? Deserialize<T>(BinaryReader reader, ReaderSettings? settings = null)
-    {
-        var rubyReader = new RubyReader(settings);
-        rubyReader.Read(reader);
-
-        return Deserialize<T>(rubyReader.Root, settings);;
     }
 
     public static T? Deserialize<T>(AbstractEntity data, ReaderSettings? settings = null)
@@ -61,10 +45,10 @@ public class RubyDeserializer
                 switch (candidate.Type)
                 {
                     case SerializationHelper.CandidateType.Property:
-                        w = new() { Object = obj, Property = type.GetProperty(candidate.Name) };
+                        w = new(obj, type.GetProperty(candidate.Name)!);
                         break;
                     case SerializationHelper.CandidateType.Field:
-                        w = new() { Object = obj, Field = type.GetField(candidate.Name) };
+                        w = new(obj, type.GetField(candidate.Name)!);
                         break;
                     default:
                         continue;

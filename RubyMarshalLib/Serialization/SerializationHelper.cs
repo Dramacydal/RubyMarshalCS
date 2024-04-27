@@ -2,10 +2,10 @@
 using System.Diagnostics;
 using System.Linq.Expressions;
 using System.Reflection;
-using RubyMarshal.Entities;
-using RubyMarshal.SpecialTypes;
+using RubyMarshalCS.Entities;
+using RubyMarshalCS.SpecialTypes;
 
-namespace RubyMarshal.Serialization;
+namespace RubyMarshalCS.Serialization;
 
 public static class SerializationHelper
 {
@@ -73,16 +73,29 @@ public static class SerializationHelper
 
     public class Candidate
     {
-        public CandidateType Type { get; set; }
-        public string Name { get; set; }
-        public bool IsDynamic { get; set; }
+        public Candidate(CandidateType type, string name, bool isDynamic = false)
+        {
+            Type = type;
+            Name = name;
+            IsDynamic = isDynamic;
+        }
+
+        public CandidateType Type { get; }
+        public string Name { get; }
+        public bool IsDynamic { get; }
     }
 
     public class TypeCandidateInfo
     {
-        public Type Type { get; set; }
+        public TypeCandidateInfo(Type type)
+        {
+            Type = type;
+        }
+        
+        public Type Type { get; }
 
-        public Dictionary<string, Candidate> FieldCandidates = new();
+        public readonly Dictionary<string, Candidate> FieldCandidates = new();
+
         public Candidate? ExtensionDataCandidate { get; set; }
     }
 
@@ -157,12 +170,7 @@ public static class SerializationHelper
                     throw new Exception(
                         $"Type [{type.DeclaringType.Name}] already have field with attribute [{ra.Name}]");
 
-                info.FieldCandidates[ra.Name] = new()
-                {
-                    Type = candidateType,
-                    Name = name,
-                    IsDynamic = attributes.Any(_ => _ is RubyDynamicPropertyAttribute)
-                };
+                info.FieldCandidates[ra.Name] = new(candidateType, name, attributes.Any(_ => _ is RubyDynamicPropertyAttribute));
             }
 
             if (attr is RubyExtensionDataAttribute re)
@@ -181,11 +189,7 @@ public static class SerializationHelper
                             "RubyExtensionAttribute on wrong field type, must be Dictionary<string, AbstractEntity>");
                 }
 
-                info.ExtensionDataCandidate = new()
-                {
-                    Type = candidateType,
-                    Name = name,
-                };
+                info.ExtensionDataCandidate = new(candidateType, name);
             }
         }
     }
@@ -195,10 +199,7 @@ public static class SerializationHelper
         if (_infos.ContainsKey(type))
             return _infos[type];
 
-        TypeCandidateInfo info = new()
-        {
-            Type = type
-        };
+        TypeCandidateInfo info = new(type);
 
         foreach (var field in type.GetFields())
             AttributeChecker(CandidateType.Field, field.Name, field, info);
@@ -313,9 +314,6 @@ public static class SerializationHelper
 
     private static object ManualCast(Type type, object o)
     {
-        if (o == null)
-            return null;
-
         if (o.GetType() == type)
             return o;
 
@@ -325,7 +323,7 @@ public static class SerializationHelper
 
         if (o.GetType() != typeof(SpecialString))
         {
-            Debug.WriteLine("");
+            throw new Exception("DEBUG");
         }
 
         var dataParam = Expression.Parameter(typeof(object), "data");
@@ -333,7 +331,7 @@ public static class SerializationHelper
 
         var run = Expression.Lambda(body, dataParam).Compile();
 
-        return run.DynamicInvoke(o);
+        return run.DynamicInvoke(o)!;
     }
 
     private static ICustomConverter? GetCustomConverter(object o, Type type)
@@ -345,34 +343,34 @@ public static class SerializationHelper
         return null;
     }
 
-    public static object? AssignmentConversion(Type t, object o, bool allowDynamic)
+    public static object? AssignmentConversion(Type t, object? o, bool allowDynamic)
     {
         if (o == null)
             return null;
 
-        if (typeof(AbstractDynamicProperty).IsAssignableFrom(t))
+        if (typeof(IDynamicProperty).IsAssignableFrom(t))
         {
-            var dynamicInstance = (AbstractDynamicProperty)Activator.CreateInstance(t);
+            var dynamicInstance = (IDynamicProperty)Activator.CreateInstance(t)!;
             dynamicInstance.Set(o);
 
             return dynamicInstance;
         }
 
-        if (typeof(IList).IsAssignableFrom(o.GetType()))
-            return ListAssignmentConversion(t, (IList)o, allowDynamic);
-        if (typeof(IDictionary).IsAssignableFrom(o.GetType()))
-            return DictionaryAssignmentConversion(t, (IDictionary)o, allowDynamic);
-
-        return ManualCast(t, o);
+        return o switch
+        {
+            IList list => ListAssignmentConversion(t, list, allowDynamic),
+            IDictionary dict => DictionaryAssignmentConversion(t, dict, allowDynamic),
+            _ => ManualCast(t, o)
+        };
     }
 
-    private static object? ListAssignmentConversion(Type newType, IList list, bool allowDynamic)
+    private static object ListAssignmentConversion(Type newType, IList list, bool allowDynamic)
     {
         IList newList;
         Type valueType;
         if (typeof(IList).IsAssignableFrom(newType))
         {
-            newList = (IList)Activator.CreateInstance(newType);
+            newList = (IList)Activator.CreateInstance(newType)!;
             valueType = SearchElementTypeForList(newType);
         }
         else if (newType == typeof(object) && allowDynamic)
@@ -394,13 +392,13 @@ public static class SerializationHelper
         return newList;
     }
 
-    private static object? DictionaryAssignmentConversion(Type newType, IDictionary dict, bool allowDynamic)
+    private static object DictionaryAssignmentConversion(Type newType, IDictionary dict, bool allowDynamic)
     {
         IDictionary newDict;
         Tuple<Type, Type> valueType;
         if (typeof(IDictionary).IsAssignableFrom(newType))
         {
-            newDict = (IDictionary)Activator.CreateInstance(newType);
+            newDict = (IDictionary)Activator.CreateInstance(newType)!;
             valueType = SearchElementTypesForDictionary(newType);
         }
         else if (newType == typeof(object) && allowDynamic)
@@ -430,12 +428,12 @@ public static class SerializationHelper
         return newDict;
     }
 
-    public static Type GetTypeForRubyObject(string objectName) =>
+    public static Type? GetTypeForRubyObject(string objectName) =>
         _rubyObjectToTypeMap.FirstOrDefault(_ => _.Key == objectName).Value;
 
-    public static string GetRubyObjectForType(Type type) =>
+    public static string? GetRubyObjectForType(Type type) =>
         _rubyObjectToTypeMap.FirstOrDefault(_ => _.Value == type).Key;
 
-    public static Type GetUserSerializerByType(Type type) =>
+    public static Type? GetUserSerializerByType(Type type) =>
         _userSerializersByType.FirstOrDefault(_ => _.Key == type).Value;
 }

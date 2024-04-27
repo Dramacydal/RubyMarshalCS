@@ -1,6 +1,6 @@
-﻿using RubyMarshal.Enums;
+﻿using RubyMarshalCS.Enums;
 
-namespace RubyMarshal.Entities;
+namespace RubyMarshalCS.Entities;
 
 public class RubySymbolLink : AbstractEntity
 {
@@ -8,13 +8,13 @@ public class RubySymbolLink : AbstractEntity
 
     public override RubyCodes Code { get; protected set; } = RubyCodes.SymbolLink;
 
-    public override void ReadData(BinaryReader r)
+    public override void ReadData(BinaryReader reader)
     {
-        ReferenceId = r.ReadFixNum();
+        ReferenceId = reader.ReadFixNum();
     }
 
-    public override void WriteData(BinaryWriter w)
+    public override void WriteData(BinaryWriter writer)
     {
-        w.WriteFixNum(ReferenceId);
+        writer.WriteFixNum(ReferenceId);
     }
 }

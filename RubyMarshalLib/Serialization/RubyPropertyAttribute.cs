@@ -1,4 +1,4 @@
-﻿namespace RubyMarshal.Serialization;
+﻿namespace RubyMarshalCS.Serialization;
 
 [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field)]
 public class RubyPropertyAttribute : Attribute
@@ -10,5 +10,5 @@ public class RubyPropertyAttribute : Attribute
         Name = name;
     }
     
-    public string? Name { get; set; }
+    public string Name { get; }
 }

@@ -1,7 +1,7 @@
 ﻿using Newtonsoft.Json;
-using RubyMarshal.Enums;
+using RubyMarshalCS.Enums;
 
-namespace RubyMarshal.Entities;
+namespace RubyMarshalCS.Entities;
 
 // [JsonConverter(typeof(EntityConverter))]
 public abstract class AbstractEntity
@@ -11,17 +11,17 @@ public abstract class AbstractEntity
 
     public abstract RubyCodes Code { get; protected set; }
     
-    public abstract void ReadData(BinaryReader r);
+    public abstract void ReadData(BinaryReader reader);
 
-    public abstract void WriteData(BinaryWriter w);
+    public abstract void WriteData(BinaryWriter writer);
 
     public AbstractEntity ResolveIfLink()
     {
-        if (Code == RubyCodes.SymbolLink)
-            return Context.LookupSymbol(this);
-        if (Code == RubyCodes.ObjectLink)
-            return Context.LookupObject(this);
-
-        return this;
+        return Code switch
+        {
+            RubyCodes.SymbolLink => Context.LookupSymbol(this),
+            RubyCodes.ObjectLink => Context.LookupObject(this),
+            _ => this
+        };
     }
 }

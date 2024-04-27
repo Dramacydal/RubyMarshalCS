@@ -1,8 +1,8 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using RubyMarshal.Entities;
+using RubyMarshalCS.Entities;
 
-namespace RubyMarshal.Json;
+namespace RubyMarshalCS.Json;
 
 public class EntityConverter : JsonConverter
 {
@@ -10,8 +10,9 @@ public class EntityConverter : JsonConverter
 
     public EntityConverter()
     {
+        _context = new();
     }
-    
+
     public EntityConverter(SerializationContext context)
     {
         _context = context;
@@ -19,7 +20,7 @@ public class EntityConverter : JsonConverter
 
     public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
     {
-        JObject jo = new JObject();
+        var jo = new JObject();
         jo.AddFirst(new JProperty("RawClassName", value.GetType().ToString()));
 
         var valueType = value.GetType();
@@ -29,14 +30,14 @@ public class EntityConverter : JsonConverter
         {
             if (prop.CustomAttributes.Any(_ => _.AttributeType == typeof(JsonIgnoreAttribute)))
                 continue;
-            
-            if (prop.CanRead)
+
+            if (!prop.CanRead)
+                continue;
+
+            var propValue = prop.GetValue(value);
+            if (propValue != null)
             {
-                object propValue = prop.GetValue(value);
-                if (propValue != null)
-                {
-                    jo.Add(prop.Name, JToken.FromObject(propValue, serializer));
-                }
+                jo.Add(prop.Name, JToken.FromObject(propValue, serializer));
             }
         }
 
@@ -44,14 +45,14 @@ public class EntityConverter : JsonConverter
         {
             if (field.CustomAttributes.Any(_ => _.AttributeType == typeof(JsonIgnoreAttribute)))
                 continue;
+
+            if (!field.IsPublic)
+                continue;
             
-            if (field.IsPublic)
+            var fieldValue = field.GetValue(value);
+            if (fieldValue != null)
             {
-                object fieldValue = field.GetValue(value);
-                if (fieldValue != null)
-                {
-                    jo.Add(field.Name, JToken.FromObject(fieldValue, serializer));
-                }
+                jo.Add(field.Name, JToken.FromObject(fieldValue, serializer));
             }
         }
         jo.WriteTo(writer);

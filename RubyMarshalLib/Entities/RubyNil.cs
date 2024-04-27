@@ -1,16 +1,16 @@
-﻿using RubyMarshal.Enums;
+﻿using RubyMarshalCS.Enums;
 
-namespace RubyMarshal.Entities;
+namespace RubyMarshalCS.Entities;
 
 public class RubyNil : AbstractEntity
 {
     public override RubyCodes Code { get; protected set; } = RubyCodes.Nil;
 
-    public override void ReadData(BinaryReader r)
+    public override void ReadData(BinaryReader reader)
     {
     }
 
-    public override void WriteData(BinaryWriter w)
+    public override void WriteData(BinaryWriter writer)
     {
     }
 }

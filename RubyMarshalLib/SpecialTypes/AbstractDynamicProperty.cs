@@ -1,12 +1,17 @@
-﻿namespace RubyMarshal.SpecialTypes;
+﻿namespace RubyMarshalCS.SpecialTypes;
 
 public abstract class AbstractDynamicProperty : IDynamicProperty
 {
-    protected readonly Dictionary<Type, object?> _valueHolder = new();
+    private readonly Dictionary<Type, object?> _valueHolder = new();
 
-    private Type? _type = null;
+    private Type? _type;
 
     private bool _isNull = true;
+
+    protected void AddVariant<T>()
+    {
+        _valueHolder.Add(typeof(T), default(T));
+    }
 
     public void Set(object? val)
     {
@@ -37,9 +42,6 @@ public abstract class AbstractDynamicProperty : IDynamicProperty
 
     public object? Get()
     {
-        if (_isNull)
-            return null;
-
-        return _valueHolder[_type];
+        return _isNull ? null : _valueHolder[_type!];
     }
 }

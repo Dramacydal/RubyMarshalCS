@@ -1,6 +1,6 @@
-﻿using RubyMarshal.Enums;
+﻿using RubyMarshalCS.Enums;
 
-namespace RubyMarshal.Entities;
+namespace RubyMarshalCS.Entities;
 
 public class RubyFixNum : AbstractEntity
 {
@@ -143,9 +143,9 @@ public class RubyFixNum : AbstractEntity
         }
     }
 
-    public override void ReadData(BinaryReader r)
+    public override void ReadData(BinaryReader reader)
     {
-        byte code = r.ReadByte();
+        byte code = reader.ReadByte();
 
         uint encoded1 = 0;
         byte encoded2 = 0;
@@ -153,44 +153,44 @@ public class RubyFixNum : AbstractEntity
         {
             case 1:
             {
-                encoded1 = r.ReadByte();
+                encoded1 = reader.ReadByte();
                 break;
             }
             case 2:
             {
-                encoded1 = r.ReadUInt16();
+                encoded1 = reader.ReadUInt16();
                 break;
             }
             case 3:
             {
-                encoded1 = r.ReadUInt16();
-                encoded2 = r.ReadByte();
+                encoded1 = reader.ReadUInt16();
+                encoded2 = reader.ReadByte();
                 break;
             }
             case 4:
             {
-                encoded1 = r.ReadUInt32();
+                encoded1 = reader.ReadUInt32();
                 break;
             }
             case 252:
             {
-                encoded1 = r.ReadUInt32();
+                encoded1 = reader.ReadUInt32();
                 break;
             }
             case 253:
             {
-                encoded1 = r.ReadUInt16();
-                encoded2 = r.ReadByte();
+                encoded1 = reader.ReadUInt16();
+                encoded2 = reader.ReadByte();
                 break;
             }
             case 254:
             {
-                encoded1 = r.ReadUInt16();
+                encoded1 = reader.ReadUInt16();
                 break;
             }
             case 255:
             {
-                encoded1 = r.ReadByte();
+                encoded1 = reader.ReadByte();
                 break;
             }
         }
@@ -210,23 +210,23 @@ public class RubyFixNum : AbstractEntity
                             : (code == 3 ? ((encoded2 << 16) | encoded1) : encoded1)))))));
     }
 
-    public override void WriteData(BinaryWriter w)
+    public override void WriteData(BinaryWriter writer)
     {
         if (Value == 0)
         {
-            w.Write((byte)0);
+            writer.Write((byte)0);
             return;
         }
 
         if (0 < Value && Value < 123)
         {
-            w.Write((byte)(Value + 5));
+            writer.Write((byte)(Value + 5));
             return;
         }
 
         if (-124 < Value && Value < 0)
         {
-            w.Write((byte)((Value - 5) & 0xFF));
+            writer.Write((byte)((Value - 5) & 0xFF));
             return;
         }
 
@@ -252,7 +252,7 @@ public class RubyFixNum : AbstractEntity
             }
         }
 
-        w.Write(buf, 0, i + 1);
+        writer.Write(buf, 0, i + 1);
     }
 
     public override string ToString()

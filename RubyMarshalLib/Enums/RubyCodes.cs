@@ -1,4 +1,4 @@
-﻿namespace RubyMarshal.Enums;
+﻿namespace RubyMarshalCS.Enums;
 
 public enum RubyCodes: byte
 {

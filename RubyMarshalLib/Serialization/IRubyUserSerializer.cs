@@ -1,4 +1,4 @@
-﻿namespace RubyMarshal.Serialization;
+﻿namespace RubyMarshalCS.Serialization;
 
 public interface IRubyUserSerializer<T>
 {

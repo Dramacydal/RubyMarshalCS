@@ -1,8 +1,8 @@
-﻿using RubyMarshal.Entities;
-using RubyMarshal.Enums;
-using RubyMarshal.Settings;
+﻿using RubyMarshalCS.Entities;
+using RubyMarshalCS.Enums;
+using RubyMarshalCS.Settings;
 
-namespace RubyMarshal;
+namespace RubyMarshalCS;
 
 public class SerializationContext
 {
@@ -13,7 +13,7 @@ public class SerializationContext
 
     private readonly ReaderSettings _settings = new();
 
-    public SerializationContext(ReaderSettings settings = null)
+    public SerializationContext(ReaderSettings? settings = null)
     {
         _settings = settings ?? _settings;
     }
@@ -142,5 +142,14 @@ public class SerializationContext
 
         writer.Write((byte)entity.Code);
         entity.WriteData(writer);
+    }
+
+    public void Reset()
+    {
+        _symbolInstances.Clear();
+        _symbolLinks.Clear();
+        
+        _objectInstances.Clear();
+        _objectLinks.Clear();
     }
 }

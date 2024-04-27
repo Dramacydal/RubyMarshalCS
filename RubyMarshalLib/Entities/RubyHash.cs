@@ -1,6 +1,6 @@
-﻿using RubyMarshal.Enums;
+﻿using RubyMarshalCS.Enums;
 
-namespace RubyMarshal.Entities;
+namespace RubyMarshalCS.Entities;
 
 public class RubyHash : AbstractEntity
 {
@@ -8,27 +8,27 @@ public class RubyHash : AbstractEntity
 
     public override RubyCodes Code { get; protected set; } = RubyCodes.Hash;
 
-    public override void ReadData(BinaryReader r)
+    public override void ReadData(BinaryReader reader)
     {
-        var numPairs = r.ReadFixNum();
+        var numPairs = reader.ReadFixNum();
 
         for (var i = 0; i < numPairs; ++i)
         {
-            var k = Context.Read(r);
-            var v = Context.Read(r);
+            var k = Context.Read(reader);
+            var v = Context.Read(reader);
 
             Pairs.Add(new(k, v));
         }
     }
 
-    public override void WriteData(BinaryWriter w)
+    public override void WriteData(BinaryWriter writer)
     {
-        w.WriteFixNum(Pairs.Count);
+        writer.WriteFixNum(Pairs.Count);
 
         foreach (var pair in Pairs)
         {
-            Context.Write(w, pair.Key);
-            Context.Write(w, pair.Value);
+            Context.Write(writer, pair.Key);
+            Context.Write(writer, pair.Value);
         }
     }
 }

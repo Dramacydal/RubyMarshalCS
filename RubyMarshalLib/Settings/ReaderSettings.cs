@@ -1,4 +1,4 @@
-﻿namespace RubyMarshal.Settings;
+﻿namespace RubyMarshalCS.Settings;
 
 public class ReaderSettings
 {

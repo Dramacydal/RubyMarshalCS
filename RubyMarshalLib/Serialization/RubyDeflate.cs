@@ -1,6 +1,6 @@
 ﻿using System.IO.Compression;
 
-namespace RubyMarshal.Serialization;
+namespace RubyMarshalCS.Serialization;
 
 public static class RubyDeflate
 {

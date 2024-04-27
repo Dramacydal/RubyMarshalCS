@@ -1,4 +1,4 @@
-﻿namespace RubyMarshal.Serialization;
+﻿namespace RubyMarshalCS.Serialization;
 
 [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
 public class RubyObjectAttribute : Attribute
@@ -7,6 +7,6 @@ public class RubyObjectAttribute : Attribute
     {
         Name = name;
     }
-    
-    public string? Name { get; set; }
+
+    public string Name { get; }
 }
