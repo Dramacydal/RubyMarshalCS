@@ -60,6 +60,7 @@ public static class RubyMarshal
     {
         writer.Write(HeaderMagic);
 
-        new SerializationContext().Write(writer, entity);
+        entity.Context.Reset();
+        entity.Context.Write(writer, entity);
     }
 }

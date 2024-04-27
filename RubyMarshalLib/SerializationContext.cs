@@ -115,29 +115,32 @@ public class SerializationContext
         return e;
     }
 
-    public void Write(BinaryWriter writer, AbstractEntity entity)
+    public void Write(BinaryWriter writer, AbstractEntity entity, bool skipObjectStore = false)
     {
-        if (LinkableObjectTypes.Contains(entity.Code))
+        if (!skipObjectStore)
         {
-            var index = _objectInstances.IndexOf(entity);
-            if (index != -1)
+            if (LinkableObjectTypes.Contains(entity.Code))
             {
-                Write(writer, new RubyObjectLink() { ReferenceId = index });
-                return;
-            }
+                var index = _objectInstances.IndexOf(entity);
+                if (index != -1)
+                {
+                    Write(writer, new RubyObjectLink() { ReferenceId = index });
+                    return;
+                }
 
-            _objectInstances.Add(entity);
-        }
-        else if (entity.Code == RubyCodes.Symbol)
-        {
-            var index = _symbolInstances.IndexOf((RubySymbol)entity);
-            if (index != -1)
+                _objectInstances.Add(entity);
+            }
+            else if (entity.Code == RubyCodes.Symbol)
             {
-                Write(writer, new RubySymbolLink() { ReferenceId = index });
-                return;
-            }
+                var index = _symbolInstances.IndexOf((RubySymbol)entity);
+                if (index != -1)
+                {
+                    Write(writer, new RubySymbolLink() { ReferenceId = index });
+                    return;
+                }
 
-            _symbolInstances.Add(entity);
+                _symbolInstances.Add(entity);
+            }
         }
 
         writer.Write((byte)entity.Code);

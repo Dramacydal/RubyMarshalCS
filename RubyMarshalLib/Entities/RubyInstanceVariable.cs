@@ -26,7 +26,7 @@ public class RubyInstanceVariable : AbstractEntity
 
     public override void WriteData(BinaryWriter writer)
     {
-        Context.Write(writer, Object);
+        Context.Write(writer, Object, true);
         writer.WriteFixNum(Variables.Count);
 
         foreach (var v in Variables)

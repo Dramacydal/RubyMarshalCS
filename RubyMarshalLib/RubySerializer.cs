@@ -11,6 +11,11 @@ public class RubySerializer
 {
     private readonly SerializationContext _context;
 
+    private readonly Dictionary<string, AbstractEntity> _serializedSymbols = new();
+    private readonly Dictionary<string, AbstractEntity> _serializedStrings = new();
+    private readonly Dictionary<double, AbstractEntity> _serializedFloats = new();
+    private readonly Dictionary<object, AbstractEntity> _serializedObjects = new();
+    
     private RubySerializer()
     {
         _context = new SerializationContext();
@@ -54,7 +59,7 @@ public class RubySerializer
                 return (bool)value ? _context.Create(RubyCodes.True) : _context.Create(RubyCodes.False);
             case TypeCode.Single:
             case TypeCode.Double:
-                return SerializeFloat((float)value);
+                return SerializeFloat((double)value);
             case TypeCode.String:
                 return SerializeString((string)value, Encoding.UTF8);
         }
@@ -136,7 +141,7 @@ public class RubySerializer
         return rf;
     }
 
-    private AbstractEntity SerializeFloat(float value)
+    private AbstractEntity SerializeFloat(double value)
     {
         if (_serializedFloats.ContainsKey(value))
             return _serializedFloats[value];
@@ -213,11 +218,6 @@ public class RubySerializer
 
         return iv;
     }
-
-    private Dictionary<string, AbstractEntity> _serializedSymbols = new();
-    private Dictionary<string, AbstractEntity> _serializedStrings = new();
-    private Dictionary<float, AbstractEntity> _serializedFloats = new();
-    private Dictionary<object, AbstractEntity> _serializedObjects = new();
 
     private AbstractEntity SerializeSymbol(string value)
     {
