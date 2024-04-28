@@ -12,9 +12,10 @@ public class RubyInstanceVariable : AbstractEntity
 
     public override void ReadData(BinaryReader reader)
     {
+        // never a link
         Object = Context.Read(reader, true);
+        
         var numVars = reader.ReadFixNum();
-
         for (var i = 0; i < numVars; ++i)
         {
             var k = Context.Read(reader);

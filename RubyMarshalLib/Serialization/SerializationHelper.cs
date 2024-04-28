@@ -314,7 +314,7 @@ public static class SerializationHelper
 
     private static object ManualCast(Type type, object o)
     {
-        if (o.GetType() == type)
+        if (o.GetType() == type || type == typeof(object))
             return o;
 
         var converter = GetCustomConverter(o, type);
