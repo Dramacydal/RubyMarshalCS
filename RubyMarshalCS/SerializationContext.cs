@@ -6,12 +6,43 @@ namespace RubyMarshalCS;
 
 public class SerializationContext
 {
-    private readonly List<AbstractEntity> _symbolInstances = new();
+    private static readonly List<RubyCodes> LinkableObjectTypes = new()
+    {
+        RubyCodes.Array,
+        RubyCodes.Hash,
+        RubyCodes.InstanceVar,
+        RubyCodes.Object,
+        RubyCodes.Float,
+        RubyCodes.BigNum,
+        RubyCodes.String,
+        RubyCodes.UserDefined,
+    };
+
+    private static readonly Dictionary<RubyCodes, Type> CodeToObjectTypeMap = new()
+    {
+        [RubyCodes.String] = typeof(RubyString),
+        [RubyCodes.Nil] = typeof(RubyNil),
+        [RubyCodes.Symbol] = typeof(RubySymbol),
+        [RubyCodes.SymbolLink] = typeof(RubySymbolLink),
+        [RubyCodes.ObjectLink] = typeof(RubyObjectLink),
+        [RubyCodes.False] = typeof(RubyFalse),
+        [RubyCodes.InstanceVar] = typeof(RubyInstanceVariable),
+        [RubyCodes.True] = typeof(RubyTrue),
+        [RubyCodes.Array] = typeof(RubyArray),
+        [RubyCodes.Float] = typeof(RubyFloat),
+        [RubyCodes.FixNum] = typeof(RubyFixNum),
+        [RubyCodes.BigNum] = typeof(RubyBigNum),
+        [RubyCodes.Object] = typeof(RubyObject),
+        [RubyCodes.UserDefined] = typeof(RubyUserDefined),
+        [RubyCodes.Hash] = typeof(RubyHash),
+    };
+
     private readonly List<AbstractEntity> _objectInstances = new();
     private readonly List<AbstractEntity> _objectLinks = new();
-    private readonly List<AbstractEntity> _symbolLinks = new();
 
     private readonly SerializationSettings _settings = new();
+    private readonly List<AbstractEntity> _symbolInstances = new();
+    private readonly List<AbstractEntity> _symbolLinks = new();
 
     public SerializationContext(SerializationSettings? settings = null)
     {
@@ -47,35 +78,6 @@ public class SerializationContext
 
         return objectOrLink;
     }
-
-    private static readonly List<RubyCodes> LinkableObjectTypes = new()
-    {
-        RubyCodes.Array,
-        RubyCodes.Hash,
-        RubyCodes.InstanceVar,
-        RubyCodes.Object,
-        RubyCodes.Float,
-        RubyCodes.String,
-        RubyCodes.UserDefined,
-    };
-
-    private static readonly Dictionary<RubyCodes, Type> CodeToObjectTypeMap = new()
-    {
-        [RubyCodes.String] = typeof(RubyString),
-        [RubyCodes.Nil] = typeof(RubyNil),
-        [RubyCodes.Symbol] = typeof(RubySymbol),
-        [RubyCodes.SymbolLink] = typeof(RubySymbolLink),
-        [RubyCodes.ObjectLink] = typeof(RubyObjectLink),
-        [RubyCodes.False] = typeof(RubyFalse),
-        [RubyCodes.InstanceVar] = typeof(RubyInstanceVariable),
-        [RubyCodes.True] = typeof(RubyTrue),
-        [RubyCodes.Array] = typeof(RubyArray),
-        [RubyCodes.Float] = typeof(RubyFloat),
-        [RubyCodes.FixNum] = typeof(RubyFixNum),
-        [RubyCodes.Object] = typeof(RubyObject),
-        [RubyCodes.UserDefined] = typeof(RubyUserDefined),
-        [RubyCodes.Hash] = typeof(RubyHash),
-    };
 
     public AbstractEntity Create(RubyCodes code, bool skipObjectStore = false)
     {

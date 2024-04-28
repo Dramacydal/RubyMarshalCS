@@ -11,9 +11,8 @@ namespace RubyMarshalCS;
 
 public class RubyDeserializer
 {
-    private readonly SerializationSettings _settings;
-
     private readonly Dictionary<object, object> _objectConversionMap = new();
+    private readonly SerializationSettings _settings;
 
     private RubyDeserializer(SerializationSettings? settings = null)
     {
@@ -186,6 +185,8 @@ public class RubyDeserializer
                 return ((RubyFixNum)e).Value;
             case RubyCodes.Float:
                 return ((RubyFloat)e).Value;
+            case RubyCodes.BigNum:
+                return ((RubyBigNum)e).Value;
         }
 
         throw new Exception($"Unsupported Ruby object [{e.GetType()}]");

@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Numerics;
 using System.Text;
 using RubyMarshalCS.Entities;
 using RubyMarshalCS.Enums;
@@ -12,11 +13,12 @@ namespace RubyMarshalCS;
 public class RubySerializer
 {
     private readonly SerializationContext _context;
-
-    private readonly Dictionary<string, AbstractEntity> _serializedSymbols = new();
-    private readonly Dictionary<string, AbstractEntity> _serializedStrings = new();
+    private readonly Dictionary<BigInteger, AbstractEntity> _serializedBigInts = new();
     private readonly Dictionary<double, AbstractEntity> _serializedFloats = new();
     private readonly Dictionary<object, AbstractEntity> _serializedObjects = new();
+    private readonly Dictionary<string, AbstractEntity> _serializedStrings = new();
+
+    private readonly Dictionary<string, AbstractEntity> _serializedSymbols = new();
     private readonly SerializationSettings _settings;
 
     private RubySerializer(SerializationSettings? settings = null)
@@ -57,10 +59,11 @@ public class RubySerializer
             case TypeCode.Int32:
             case TypeCode.UInt64:
             case TypeCode.Int64:
-            case TypeCode.Decimal:
                 return SerializeInt((int)value);
             case TypeCode.Boolean:
                 return (bool)value ? _context.Create(RubyCodes.True) : _context.Create(RubyCodes.False);
+            case TypeCode.Decimal:
+                return SerializeFloat(Convert.ToDouble(value));
             case TypeCode.Single:
                 return SerializeFloat(Convert.ToDouble(value));
             case TypeCode.Double:
@@ -71,6 +74,9 @@ public class RubySerializer
 
         if (valueType == typeof(SpecialString))
             return SerializeString((SpecialString)value);
+        
+        if (valueType == typeof(BigInteger))
+            return SerializeBigInt((BigInteger)value);
 
         if (typeof(IList).IsAssignableFrom(valueType))
             return SerializeArray((IList)value);
@@ -179,6 +185,19 @@ public class RubySerializer
         _serializedFloats[value] = rf;
 
         return rf;
+    }
+
+    private AbstractEntity SerializeBigInt(BigInteger value)
+    {
+        if (_serializedBigInts.ContainsKey(value))
+            return _serializedBigInts[value];
+
+        var rbn = (RubyBigNum)_context.Create(RubyCodes.BigNum);
+        rbn.Value = value;
+
+        _serializedBigInts[value] = rbn;
+
+        return rbn;
     }
 
     private AbstractEntity SerializeDictionary(IDictionary value)
