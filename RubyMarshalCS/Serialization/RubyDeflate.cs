@@ -16,14 +16,7 @@ public static class RubyDeflate
 
         decompressor.CopyTo(inflated);
 
-        inflated.Seek(0, SeekOrigin.Begin);
-
-        var buffer = inflated.GetBuffer();
-
-        if (inflated.Length < buffer.Length)
-            Array.Resize(ref buffer, (int)inflated.Length);
-
-        return buffer;
+        return inflated.GetTrimmedBuffer();
     }
 
     public static byte[] Deflate(byte[] data, CompressionLevel level = CompressionLevel.Fastest)

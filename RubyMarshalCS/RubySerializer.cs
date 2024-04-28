@@ -105,12 +105,7 @@ public class RubySerializer
 
         var rubyObjectTypeName = (string)serializerType.GetMethod("GetObjectName")!.Invoke(serializer, new[] { value })!;
         ru.ClassName = SerializeSymbol(rubyObjectTypeName);
-
-        var bytes = stream.GetBuffer();
-        if (stream.Length < bytes.Length)
-            Array.Resize(ref bytes, (int)stream.Length);
-
-        ru.Bytes = bytes;
+        ru.Bytes = stream.GetTrimmedBuffer();
 
         _serializedObjects[value] = ru;
 

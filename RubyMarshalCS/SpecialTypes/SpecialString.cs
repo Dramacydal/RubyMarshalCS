@@ -25,8 +25,11 @@ public class SpecialString
         get => _encoding;
         set
         {
+            if (value == _encoding)
+                return;
+            
             _encoding = value;
-            _bytes = _encoding.GetBytes(_value);
+            _value = _encoding.GetString(_bytes);
         }
     }
 
@@ -47,7 +50,6 @@ public class SpecialString
 
     public SpecialString()
     {
-        
     }
     
     public SpecialString(byte[] bytes, Encoding encoding)
