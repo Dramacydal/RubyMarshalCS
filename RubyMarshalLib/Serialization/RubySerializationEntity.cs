@@ -5,5 +5,5 @@ namespace RubyMarshalCS.Serialization;
 public abstract class RubySerializationEntity
 {
     [RubyExtensionData]
-    public Dictionary<string, AbstractEntity> _unknownFields = new();
+    public Dictionary<string, object?> _unknownFields = new();
 }

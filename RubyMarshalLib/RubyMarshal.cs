@@ -7,26 +7,26 @@ public static class RubyMarshal
 {
     private const ushort HeaderMagic = 0x804;
     
-    public static T? Load<T>(string path, ReaderSettings? settings = null)
+    public static T? Load<T>(string path, SerializationSettings? settings = null)
     {
         using var reader = new BinaryReader(File.OpenRead(path));
 
         return Load<T>(reader, settings);
     }
 
-    public static T? Load<T>(BinaryReader reader, ReaderSettings? settings = null)
+    public static T? Load<T>(BinaryReader reader, SerializationSettings? settings = null)
     {
         return RubyDeserializer.Deserialize<T>(Load(reader, settings), settings);
     }
 
-    public static AbstractEntity Load(string path, ReaderSettings? settings = null)
+    public static AbstractEntity Load(string path, SerializationSettings? settings = null)
     {
         using var reader = new BinaryReader(File.OpenRead(path));
 
         return Load(reader, settings);
     }
 
-    public static AbstractEntity Load(BinaryReader reader, ReaderSettings? settings = null)
+    public static AbstractEntity Load(BinaryReader reader, SerializationSettings? settings = null)
     {
         var version = reader.ReadUInt16();
         if (version != HeaderMagic)

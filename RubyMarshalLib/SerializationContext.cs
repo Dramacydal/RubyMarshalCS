@@ -11,9 +11,9 @@ public class SerializationContext
     private readonly List<AbstractEntity> _objectLinks = new();
     private readonly List<AbstractEntity> _symbolLinks = new();
 
-    private readonly ReaderSettings _settings = new();
+    private readonly SerializationSettings _settings = new();
 
-    public SerializationContext(ReaderSettings? settings = null)
+    public SerializationContext(SerializationSettings? settings = null)
     {
         _settings = settings ?? _settings;
     }

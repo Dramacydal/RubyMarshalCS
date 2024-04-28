@@ -11,16 +11,16 @@ namespace RubyMarshalCS;
 
 public class RubyDeserializer
 {
-    private readonly ReaderSettings _settings;
+    private readonly SerializationSettings _settings;
 
     private readonly Dictionary<object, object> _objectConversionMap = new();
 
-    private RubyDeserializer(ReaderSettings? settings = null)
+    private RubyDeserializer(SerializationSettings? settings = null)
     {
         _settings = settings ?? new();
     }
 
-    public static T? Deserialize<T>(AbstractEntity data, ReaderSettings? settings = null)
+    public static T? Deserialize<T>(AbstractEntity data, SerializationSettings? settings = null)
     {
         var instance = new RubyDeserializer(settings);
 
@@ -37,7 +37,7 @@ public class RubyDeserializer
 
             var candidate = SerializationHelper.GetFieldCandidate(type, fieldName);
             if (candidate == null /* || data is RubyUserDefined*/)
-                StoreToExtensionData(type, obj, fieldName, value);
+                StoreToExtensionData(type, obj, fieldName, DeserializeEntity(value));
             else
             {
                 ValueWrapper w;
@@ -61,7 +61,7 @@ public class RubyDeserializer
         return obj;
     }
 
-    private void StoreToExtensionData(Type type, object obj ,string fieldName, AbstractEntity value)
+    private void StoreToExtensionData(Type type, object obj, string fieldName, object? value)
     {
         var extensionCandidate = SerializationHelper.GetExtensionDataCandidate(type);
         if (extensionCandidate != null)
@@ -79,7 +79,7 @@ public class RubyDeserializer
             }
 
             if (extensionData != null)
-                ((Dictionary<string, AbstractEntity>)extensionData)[fieldName] = value;
+                ((Dictionary<string, object?>)extensionData)[fieldName] = value;
         }
         else if (_settings.EnsureExtensionDataPresent)
             throw new Exception($"Ruby object type {type} does not have extension data field");

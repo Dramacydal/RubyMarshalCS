@@ -73,16 +73,24 @@ public static class SerializationHelper
 
     public class Candidate
     {
-        public Candidate(CandidateType type, string name, bool isDynamic = false)
+        public Candidate(CandidateType type, string name)
         {
             Type = type;
             Name = name;
+        }
+        
+        public Candidate(CandidateType type, string name, bool isTrash, bool isDynamic)
+        {
+            Type = type;
+            Name = name;
+            IsTrash = isTrash;
             IsDynamic = isDynamic;
         }
 
         public CandidateType Type { get; }
         public string Name { get; }
         public bool IsDynamic { get; }
+        public bool IsTrash { get; }
     }
 
     public class TypeCandidateInfo
@@ -170,23 +178,23 @@ public static class SerializationHelper
                     throw new Exception(
                         $"Type [{type.DeclaringType.Name}] already have field with attribute [{ra.Name}]");
 
-                info.FieldCandidates[ra.Name] = new(candidateType, name, attributes.Any(_ => _ is RubyDynamicPropertyAttribute));
+                info.FieldCandidates[ra.Name] = new(candidateType, name, ra.IsTrash, attributes.Any(_ => _ is RubyDynamicPropertyAttribute));
             }
 
             if (attr is RubyExtensionDataAttribute re)
             {
                 if (type is PropertyInfo pi)
                 {
-                    if (pi.PropertyType != typeof(Dictionary<string, AbstractEntity>))
+                    if (pi.PropertyType != typeof(Dictionary<string, object?>))
                         throw new Exception(
-                            "RubyExtensionAttribute on wrong property type, must be Dictionary<string, AbstractEntity>");
+                            $"{nameof(RubyExtensionDataAttribute)} on wrong property type, must be Dictionary<string, object?>");
                 }
 
                 if (type is FieldInfo fi)
                 {
-                    if (fi.FieldType != typeof(Dictionary<string, AbstractEntity>))
+                    if (fi.FieldType != typeof(Dictionary<string, object?>))
                         throw new Exception(
-                            "RubyExtensionAttribute on wrong field type, must be Dictionary<string, AbstractEntity>");
+                            $"{nameof(RubyExtensionDataAttribute)} on wrong field type, must be Dictionary<string, object?>");
                 }
 
                 info.ExtensionDataCandidate = new(candidateType, name);

@@ -3,6 +3,7 @@ using System.Text;
 using RubyMarshalCS.Entities;
 using RubyMarshalCS.Enums;
 using RubyMarshalCS.Serialization;
+using RubyMarshalCS.Settings;
 using RubyMarshalCS.SpecialTypes;
 
 namespace RubyMarshalCS;
@@ -15,22 +16,24 @@ public class RubySerializer
     private readonly Dictionary<string, AbstractEntity> _serializedStrings = new();
     private readonly Dictionary<double, AbstractEntity> _serializedFloats = new();
     private readonly Dictionary<object, AbstractEntity> _serializedObjects = new();
-    
-    private RubySerializer()
+    private readonly SerializationSettings _settings;
+
+    private RubySerializer(SerializationSettings? settings=null)
     {
         _context = new SerializationContext();
+        _settings = settings ?? new();
     }
 
-    public static AbstractEntity Serialize<T>(T? value)
+    public static AbstractEntity Serialize<T>(T? value, SerializationSettings? settings=null)
     {
-        var instance = new RubySerializer();
+        var instance = new RubySerializer(settings);
 
         return instance.SerializeValue(value);
     }
 
-    public static AbstractEntity Serialize(object? value)
+    public static AbstractEntity Serialize(object? value, SerializationSettings? settings=null)
     {
-        return Serialize<object>(value);
+        return Serialize<object>(value, settings);
     }
 
     private AbstractEntity SerializeValue(object? value)
@@ -118,19 +121,41 @@ public class RubySerializer
 
         ro.ClassName = SerializeSymbol(rubyObjectType);
 
-        var info = SerializationHelper.GetTypeCandidateInfo(value.GetType());
-        foreach (var f in info.FieldCandidates)
+        var objectType = value.GetType();
+        var info = SerializationHelper.GetTypeCandidateInfo(objectType);
+        foreach (var (fieldName, fieldCandidate) in info.FieldCandidates)
         {
-            object? fieldValue = null;
-            if (f.Value.Type == SerializationHelper.CandidateType.Field)
-                fieldValue = value.GetType().GetField(f.Value.Name)!.GetValue(value);
-            else if (f.Value.Type == SerializationHelper.CandidateType.Property)
-                fieldValue = value.GetType().GetProperty(f.Value.Name)!.GetValue(value);
+            if (fieldCandidate.IsTrash && !_settings.WriteTrashProperties)
+                continue;
 
-            ro.Fields.Add(new(SerializeSymbol(f.Key), SerializeValue(fieldValue)));
+            object? fieldValue = null;
+            if (fieldCandidate.Type == SerializationHelper.CandidateType.Field)
+                fieldValue = objectType.GetField(fieldCandidate.Name)!.GetValue(value);
+            else if (fieldCandidate.Type == SerializationHelper.CandidateType.Property)
+                fieldValue = objectType.GetProperty(fieldCandidate.Name)!.GetValue(value);
+
+            ro.Fields.Add(new(SerializeSymbol(fieldName), SerializeValue(fieldValue)));
+        }
+
+        if (info.ExtensionDataCandidate != null)
+        {
+            Dictionary<string, object?>? map;
+            if (info.ExtensionDataCandidate.Type == SerializationHelper.CandidateType.Field)
+                map = objectType.GetField(info.ExtensionDataCandidate.Name)!.GetValue(value) as Dictionary<string, object?>;
+            else
+                map = objectType.GetProperty(info.ExtensionDataCandidate.Name)!.GetValue(value) as Dictionary<string, object?>;
+
+            if (map != null)
+                WriteUnknownObjectFields(map, ro);
         }
 
         return ro;
+    }
+
+    private void WriteUnknownObjectFields(Dictionary<string, object?> map, RubyObject ro)
+    {
+        foreach (var (field, value) in map)
+            ro.Fields.Add(new(SerializeSymbol(field), SerializeValue(value)));
     }
 
     private AbstractEntity SerializeInt(int value)
