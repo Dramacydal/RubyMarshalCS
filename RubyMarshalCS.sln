@@ -2,7 +2,7 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RubyMarshalCli", "RubyMarshalCli\RubyMarshalCli.csproj", "{7F7A18CD-CBAC-4CCA-A880-CE25D2B0DB44}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RubyMarshalLib", "RubyMarshalLib\RubyMarshalLib.csproj", "{1D54A8E1-830A-4233-B68B-A2F6CAAC3C61}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RubyMarshalCS", "RubyMarshalCS\RubyMarshalCS.csproj", "{1D54A8E1-830A-4233-B68B-A2F6CAAC3C61}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

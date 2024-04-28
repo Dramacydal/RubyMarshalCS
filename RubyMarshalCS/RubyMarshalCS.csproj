@@ -5,7 +5,8 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <RootNamespace>RubyMarshalCS</RootNamespace>
-        <PackageId>RubyMarshalLib</PackageId>
+        <PackageId>RubyMarshalCS</PackageId>
+        <AssemblyName>RubyMarshalCS</AssemblyName>
     </PropertyGroup>
 
     <ItemGroup>
