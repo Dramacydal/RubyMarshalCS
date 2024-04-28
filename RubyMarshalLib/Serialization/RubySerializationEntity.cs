@@ -1,4 +1,4 @@
-﻿using RubyMarshalCS.Entities;
+﻿using RubyMarshalCS.Serialization.Attributes;
 
 namespace RubyMarshalCS.Serialization;
 

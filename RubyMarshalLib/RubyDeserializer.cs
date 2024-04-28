@@ -145,11 +145,14 @@ public class RubyDeserializer
                 var ru = (RubyUserDefined)e;
                 var objectName = ru.GetRealClassName();
 
-                var objectType = SerializationHelper.GetTypeForRubyObject(objectName);
+                var objectType = SerializationHelper.GetTypeForRubyObjectTypeName(objectName);
                 if (objectType == null)
-                    throw new Exception($"Unsupported user-defined object [{objectName}]");
+                    if (_settings.AllowGenericUserObjects)
+                        objectType = typeof(GenericUserObject);
+                    else
+                        throw new Exception($"Unsupported user-defined object [{objectName}]");
 
-                var c = DeserializeUserDefinedObject(objectType, ru);
+                var c = DeserializeUserDefinedObject(objectName, objectType, ru);
 
                 _objectConversionMap[e] = c;
 
@@ -163,7 +166,7 @@ public class RubyDeserializer
                 var ro = (RubyObject)e;
 
                 var objectName = ro.GetRealClassName();
-                var objectType = SerializationHelper.GetTypeForRubyObject(objectName);
+                var objectType = SerializationHelper.GetTypeForRubyObjectTypeName(objectName);
                 if (objectType == null)
                     throw new Exception($"Unsupported object [{objectName}]");
 
@@ -225,10 +228,8 @@ public class RubyDeserializer
         return res;
     }
 
-    private object DeserializeUserDefinedObject(Type type, RubyUserDefined data)
+    private object DeserializeUserDefinedObject(string objectName, Type type, RubyUserDefined data)
     {
-        var obj = Activator.CreateInstance(type)!;
-
         var serializerType = SerializationHelper.GetUserSerializerByType(type);
         if (serializerType == null)
             throw new Exception(
@@ -240,7 +241,11 @@ public class RubyDeserializer
 
         using var stream = new MemoryStream(data.Bytes);
         using var reader = new BinaryReader(stream);
+        var obj = Activator.CreateInstance(type)!;
         method.Invoke(serializer, new[] { obj, reader });
+
+        if (obj is GenericUserObject guo)
+            guo.Name = objectName;
 
         return obj;
     }

@@ -1,4 +1,4 @@
-﻿namespace RubyMarshalCS.SpecialTypes;
+﻿namespace RubyMarshalCS.SpecialTypes.Interfaces;
 
 public interface IDynamicProperty
 {

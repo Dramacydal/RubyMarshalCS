@@ -1,4 +1,6 @@
-﻿namespace RubyMarshalCS.SpecialTypes;
+﻿using RubyMarshalCS.SpecialTypes.Interfaces;
+
+namespace RubyMarshalCS.SpecialTypes;
 
 public abstract class AbstractDynamicProperty : IDynamicProperty
 {

@@ -89,6 +89,11 @@ public class SerializationContext
             _symbolInstances.Add(e);
         else if (!skipObjectStore && LinkableObjectTypes.Contains(code))
             _objectInstances.Add(e);
+        
+        if (e.Code == RubyCodes.ObjectLink)
+            _objectLinks.Add(e);
+        else if (e.Code == RubyCodes.SymbolLink)
+            _symbolLinks.Add(e);
 
         return e;
     }
@@ -99,11 +104,6 @@ public class SerializationContext
         var e = Create((RubyCodes)code, skipObjectStore);
         e.ReadData(reader);
 
-        if (e.Code == RubyCodes.ObjectLink)
-            _objectLinks.Add(e);
-        else if (e.Code == RubyCodes.SymbolLink)
-            _symbolLinks.Add(e);
-        
         if (_settings.ResolveLinks)
         {
             if (e.Code == RubyCodes.ObjectLink)

@@ -1,4 +1,6 @@
-﻿namespace RubyMarshalCS.SpecialTypes;
+﻿using RubyMarshalCS.Conversion.Interfaces;
+
+namespace RubyMarshalCS.Conversion;
 
 public abstract class AbstractCustomConverter<T1, T2> : ICustomConverter
 {

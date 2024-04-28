@@ -1,4 +1,4 @@
-﻿namespace RubyMarshalCS.SpecialTypes;
+﻿namespace RubyMarshalCS.Conversion.Interfaces;
 
 public interface ICustomConverter
 {

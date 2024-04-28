@@ -1,4 +1,5 @@
-﻿using RubyMarshalCS.Enums;
+﻿using System.Diagnostics;
+using RubyMarshalCS.Enums;
 
 namespace RubyMarshalCS.Entities;
 
@@ -13,6 +14,10 @@ public class RubyUserDefined : AbstractEntity
     public override void ReadData(BinaryReader reader)
     {
         ClassName = Context.Read(reader);
+        if (ClassName.Code != RubyCodes.SymbolLink)
+        {
+            Debug.WriteIf(false,"");
+        }
 
         Bytes = reader.ReadByteSequence();
     }
@@ -30,6 +35,6 @@ public class RubyUserDefined : AbstractEntity
 
     public override string ToString()
     {
-        return "User object: " + GetRealClassName();
+        return $"User object: {GetRealClassName()}";
     }
 }

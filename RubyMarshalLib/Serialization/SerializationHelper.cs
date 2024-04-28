@@ -1,9 +1,12 @@
 ﻿using System.Collections;
-using System.Diagnostics;
 using System.Linq.Expressions;
 using System.Reflection;
-using RubyMarshalCS.Entities;
+using RubyMarshalCS.Conversion.Attributes;
+using RubyMarshalCS.Conversion.Interfaces;
+using RubyMarshalCS.Serialization.Attributes;
+using RubyMarshalCS.Serialization.Interfaces;
 using RubyMarshalCS.SpecialTypes;
+using RubyMarshalCS.SpecialTypes.Interfaces;
 
 namespace RubyMarshalCS.Serialization;
 
@@ -26,10 +29,10 @@ public static class SerializationHelper
 
     public static void RegisterRubyObject(string name, Type type)
     {
-        if (_rubyObjectToTypeMap.ContainsKey(name))
+        if (_rubyObjectTypeNamesToTypeMap.ContainsKey(name))
             throw new Exception($"Ruby object [{name}] already registered");
 
-        _rubyObjectToTypeMap[name] = type;
+        _rubyObjectTypeNamesToTypeMap[name] = type;
         _typeToRubyObjectMap[type] = name;
     }
 
@@ -113,7 +116,7 @@ public static class SerializationHelper
 
     private static Dictionary<Type, Tuple<Type, Type>?> _elemenTypeForDictionaryMap = new();
 
-    private static Dictionary<string, Type> _rubyObjectToTypeMap = new();
+    private static Dictionary<string, Type> _rubyObjectTypeNamesToTypeMap = new();
     private static Dictionary<Type, string> _typeToRubyObjectMap = new();
 
     private static Dictionary<Type, Type> _userSerializersByType = new();
@@ -436,11 +439,11 @@ public static class SerializationHelper
         return newDict;
     }
 
-    public static Type? GetTypeForRubyObject(string objectName) =>
-        _rubyObjectToTypeMap.FirstOrDefault(_ => _.Key == objectName).Value;
+    public static Type? GetTypeForRubyObjectTypeName(string rubyObjectTypeName) =>
+        _rubyObjectTypeNamesToTypeMap.FirstOrDefault(_ => _.Key == rubyObjectTypeName).Value;
 
-    public static string? GetRubyObjectForType(Type type) =>
-        _rubyObjectToTypeMap.FirstOrDefault(_ => _.Value == type).Key;
+    public static string? GetRubyObjectTypeNameForType(Type type) =>
+        _rubyObjectTypeNamesToTypeMap.FirstOrDefault(_ => _.Value == type).Key;
 
     public static Type? GetUserSerializerByType(Type type) =>
         _userSerializersByType.FirstOrDefault(_ => _.Key == type).Value;

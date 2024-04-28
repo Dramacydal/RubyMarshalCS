@@ -5,6 +5,7 @@ using RubyMarshalCS.Enums;
 using RubyMarshalCS.Serialization;
 using RubyMarshalCS.Settings;
 using RubyMarshalCS.SpecialTypes;
+using RubyMarshalCS.SpecialTypes.Interfaces;
 
 namespace RubyMarshalCS;
 
@@ -38,11 +39,11 @@ public class RubySerializer
 
     private AbstractEntity SerializeValue(object? value)
     {
-        if (value is IDynamicProperty dp)
-            value = dp.Get();
-        
         if (value == null)
             return _context.Create(RubyCodes.Nil);
+        
+        if (value is IDynamicProperty dp)
+            value = dp.Get();
         
         var valueType = value.GetType();
         
@@ -76,14 +77,14 @@ public class RubySerializer
         if (typeof(IDictionary).IsAssignableFrom(valueType))
             return SerializeDictionary((IDictionary)value);
 
-        var rubyObjectType = SerializationHelper.GetRubyObjectForType(valueType);
-        if (!string.IsNullOrEmpty(rubyObjectType))
-            return SerializeObject(rubyObjectType, value);
-        
         var serializerType = SerializationHelper.GetUserSerializerByType(valueType);
         if (serializerType != null)
             return SerializeUserObject(serializerType, value);
 
+        var rubyObjectTypeName = SerializationHelper.GetRubyObjectTypeNameForType(valueType);
+        if (!string.IsNullOrEmpty(rubyObjectTypeName))
+            return SerializeObject(rubyObjectTypeName, value);
+        
         throw new Exception($"Can't serialize type {valueType}");
     }
 
@@ -91,26 +92,31 @@ public class RubySerializer
     {
         if (_serializedObjects.ContainsKey(value))
             return _serializedObjects[value];
-        
-        var serializer = Activator.CreateInstance(serializerType);
 
-        var method = serializerType.GetMethod("Read")!;
+        var serializer = Activator.CreateInstance(serializerType);
 
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream);
         
-        method.Invoke(serializer, new[] { value, writer });
-
         var ru = (RubyUserDefined)_context.Create(RubyCodes.UserDefined);
+
+        serializerType.GetMethod("Write")!.Invoke(serializer, new[] { value, writer });
+
+        var rubyObjectTypeName = (string)serializerType.GetMethod("GetObjectName")!.Invoke(serializer, new[] { value })!;
+        ru.ClassName = SerializeSymbol(rubyObjectTypeName);
+
+        var bytes = stream.GetBuffer();
+        if (stream.Length < bytes.Length)
+            Array.Resize(ref bytes, (int)stream.Length);
+        
+        ru.Bytes = bytes;
 
         _serializedObjects[value] = ru;
         
-        ru.Bytes = stream.GetBuffer();
-
         return ru;
     }
 
-    private AbstractEntity SerializeObject(string rubyObjectType, object value)
+    private AbstractEntity SerializeObject(string rubyObjectTypeName, object value)
     {
         if (_serializedObjects.ContainsKey(value))
             return _serializedObjects[value];
@@ -119,7 +125,7 @@ public class RubySerializer
 
         _serializedObjects[value] = ro;
 
-        ro.ClassName = SerializeSymbol(rubyObjectType);
+        ro.ClassName = SerializeSymbol(rubyObjectTypeName);
 
         var objectType = value.GetType();
         var info = SerializationHelper.GetTypeCandidateInfo(objectType);

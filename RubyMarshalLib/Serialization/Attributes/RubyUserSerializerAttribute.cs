@@ -1,4 +1,4 @@
-﻿namespace RubyMarshalCS.Serialization;
+﻿namespace RubyMarshalCS.Serialization.Attributes;
 
 [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
 public class RubyUserSerializerAttribute : Attribute

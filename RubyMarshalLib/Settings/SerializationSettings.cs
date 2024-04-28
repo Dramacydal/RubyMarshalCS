@@ -6,4 +6,5 @@ public class SerializationSettings
     public bool EnsureObjects { get; set; } = true;
     public bool EnsureExtensionDataPresent { get; set; } = true;
     public bool WriteTrashProperties { get; set; } = true;
+    public bool AllowGenericUserObjects { get; set; } = false;
 }
