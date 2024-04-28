@@ -19,20 +19,20 @@ public class RubySerializer
     private readonly Dictionary<object, AbstractEntity> _serializedObjects = new();
     private readonly SerializationSettings _settings;
 
-    private RubySerializer(SerializationSettings? settings=null)
+    private RubySerializer(SerializationSettings? settings = null)
     {
         _context = new SerializationContext();
         _settings = settings ?? new();
     }
 
-    public static AbstractEntity Serialize<T>(T? value, SerializationSettings? settings=null)
+    public static AbstractEntity Serialize<T>(T? value, SerializationSettings? settings = null)
     {
         var instance = new RubySerializer(settings);
 
         return instance.SerializeValue(value);
     }
 
-    public static AbstractEntity Serialize(object? value, SerializationSettings? settings=null)
+    public static AbstractEntity Serialize(object? value, SerializationSettings? settings = null)
     {
         return Serialize<object>(value, settings);
     }
@@ -41,12 +41,12 @@ public class RubySerializer
     {
         if (value == null)
             return _context.Create(RubyCodes.Nil);
-        
+
         if (value is IDynamicProperty dp)
             value = dp.Get();
-        
+
         var valueType = value.GetType();
-        
+
         switch (Type.GetTypeCode(valueType))
         {
             case TypeCode.Byte:
@@ -62,6 +62,7 @@ public class RubySerializer
             case TypeCode.Boolean:
                 return (bool)value ? _context.Create(RubyCodes.True) : _context.Create(RubyCodes.False);
             case TypeCode.Single:
+                return SerializeFloat(Convert.ToDouble(value));
             case TypeCode.Double:
                 return SerializeFloat((double)value);
             case TypeCode.String:
@@ -73,7 +74,7 @@ public class RubySerializer
 
         if (typeof(IList).IsAssignableFrom(valueType))
             return SerializeArray((IList)value);
-        
+
         if (typeof(IDictionary).IsAssignableFrom(valueType))
             return SerializeDictionary((IDictionary)value);
 
@@ -84,7 +85,7 @@ public class RubySerializer
         var rubyObjectTypeName = SerializationHelper.GetRubyObjectTypeNameForType(valueType);
         if (!string.IsNullOrEmpty(rubyObjectTypeName))
             return SerializeObject(rubyObjectTypeName, value);
-        
+
         throw new Exception($"Can't serialize type {valueType}");
     }
 
@@ -97,7 +98,7 @@ public class RubySerializer
 
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream);
-        
+
         var ru = (RubyUserDefined)_context.Create(RubyCodes.UserDefined);
 
         serializerType.GetMethod("Write")!.Invoke(serializer, new[] { value, writer });
@@ -108,11 +109,11 @@ public class RubySerializer
         var bytes = stream.GetBuffer();
         if (stream.Length < bytes.Length)
             Array.Resize(ref bytes, (int)stream.Length);
-        
+
         ru.Bytes = bytes;
 
         _serializedObjects[value] = ru;
-        
+
         return ru;
     }
 
@@ -176,12 +177,12 @@ public class RubySerializer
     {
         if (_serializedFloats.ContainsKey(value))
             return _serializedFloats[value];
-        
+
         var rf = (RubyFloat)_context.Create(RubyCodes.Float);
         rf.Value = value;
-        
+
         _serializedFloats[value] = rf;
-        
+
         return rf;
     }
 
@@ -189,14 +190,14 @@ public class RubySerializer
     {
         if (_serializedObjects.ContainsKey(value))
             return _serializedObjects[value];
-        
+
         var rh = (RubyHash)_context.Create(RubyCodes.Hash);
-        
+
         _serializedObjects[value] = rh;
 
         foreach (DictionaryEntry v in value)
             rh.Pairs.Add(new(SerializeValue(v.Key), SerializeValue(v.Value)));
-        
+
         return rh;
     }
 
@@ -204,14 +205,14 @@ public class RubySerializer
     {
         if (_serializedObjects.ContainsKey(value))
             return _serializedObjects[value];
-        
+
         var ra = (RubyArray)_context.Create(RubyCodes.Array);
-        
+
         _serializedObjects[value] = ra;
-        
+
         foreach (var v in value)
             ra.Elements.Add(SerializeValue(v));
-        
+
         return ra;
     }
 
@@ -228,19 +229,19 @@ public class RubySerializer
     private AbstractEntity SerializeString(byte[] value)
     {
         var asHex = Convert.ToHexString(value);
-        
+
         if (_serializedStrings.ContainsKey(asHex))
             return _serializedStrings[asHex];
-        
+
         var iv = (RubyInstanceVariable)_context.Create(RubyCodes.InstanceVar, true);
 
         _serializedStrings[asHex] = iv;
-        
+
         var str = (RubyString)_context.Create(RubyCodes.String);
         str.Bytes = value;
 
         var rs = SerializeSymbol("E");
-        
+
         iv.Object = str;
         iv.Variables.Add(new(rs, _context.Create(RubyCodes.True)));
         // True - UTF-8
@@ -254,12 +255,12 @@ public class RubySerializer
     {
         if (_serializedSymbols.ContainsKey(value))
             return _serializedSymbols[value];
-        
+
         var rs = (RubySymbol)_context.Create(RubyCodes.Symbol);
         rs.Name = value;
 
         _serializedSymbols[value] = rs;
-        
+
         return rs;
     }
 }

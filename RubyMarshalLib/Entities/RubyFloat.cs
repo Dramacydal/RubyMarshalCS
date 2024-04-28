@@ -38,4 +38,9 @@ public class RubyFloat : AbstractEntity
             writer.WriteByteSequence(Encoding.ASCII.GetBytes(str));
         }
     }
+
+    public override string ToString()
+    {
+        return Value.ToString();
+    }
 }
