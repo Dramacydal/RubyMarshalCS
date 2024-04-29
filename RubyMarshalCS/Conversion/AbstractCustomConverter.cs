@@ -2,32 +2,43 @@
 
 namespace RubyMarshalCS.Conversion;
 
-public abstract class AbstractCustomConverter<T1, T2> : ICustomConverter
+public abstract class AbstractCustomConverter<TSource, TTarget> : ICustomConverter
 {
     public bool CanConvert(object o, Type type)
     {
-        return o.GetType() == typeof(T1) && type == typeof(T2) || o.GetType() == typeof(T2) && type == typeof(T1);
+        return o.GetType() == typeof(TSource) && type == typeof(TTarget) ||
+               o.GetType() == typeof(TTarget) && type == typeof(TSource);
     }
 
-    protected abstract void Convert(T1 from, out T2 to);
-    protected abstract void Convert(T2 from, out T1 to);
+    public bool CanConvertBack(object o)
+    {
+        return o.GetType() == typeof(TTarget);
+    }
+
+    protected abstract void Convert(TSource from, out TTarget to);
+    protected abstract void Convert(TTarget from, out TSource to);
 
     public object Convert(object value, Type type)
     {
-        if (type == typeof(T2))
+        if (type == typeof(TTarget))
         {
-            Convert((T1)value, out var val);
+            Convert((TSource)value, out var val);
 
             return val!;
         }
 
-        if (type == typeof(T1))
+        if (type == typeof(TSource))
         {
-            Convert((T2)value, out var val);
+            Convert((TTarget)value, out var val);
 
             return val!;
         }
 
-        throw new Exception($"Object value must be of type {typeof(T1)} or {typeof(T2)}");
+        throw new Exception($"Object value must be of type {typeof(TSource)} or {typeof(TTarget)}");
+    }
+
+    public object ConvertBack(object value)
+    {
+        return Convert(value, typeof(TSource));
     }
 }

@@ -5,9 +5,10 @@ namespace RubyMarshalCS.Entities;
 
 public class RubyBigNum : AbstractEntity
 {
+    public BigInteger Value;
+
     private const byte PositiveSign = 43;
     private const byte NegativeSign = 45;
-    public BigInteger Value;
 
     public override RubyCodes Code { get; protected set; } = RubyCodes.BigNum;
 

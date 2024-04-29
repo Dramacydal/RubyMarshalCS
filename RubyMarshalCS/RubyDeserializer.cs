@@ -11,8 +11,9 @@ namespace RubyMarshalCS;
 
 public class RubyDeserializer
 {
-    private readonly Dictionary<object, object> _objectConversionMap = new();
     private readonly SerializationSettings _settings;
+
+    private readonly Dictionary<object, object> _objectConversionMap = new();
 
     private RubyDeserializer(SerializationSettings? settings = null)
     {

@@ -13,13 +13,13 @@ namespace RubyMarshalCS;
 public class RubySerializer
 {
     private readonly SerializationContext _context;
+    private readonly SerializationSettings _settings;
+
     private readonly Dictionary<BigInteger, AbstractEntity> _serializedBigInts = new();
     private readonly Dictionary<double, AbstractEntity> _serializedFloats = new();
     private readonly Dictionary<object, AbstractEntity> _serializedObjects = new();
     private readonly Dictionary<string, AbstractEntity> _serializedStrings = new();
-
     private readonly Dictionary<string, AbstractEntity> _serializedSymbols = new();
-    private readonly SerializationSettings _settings;
 
     private RubySerializer(SerializationSettings? settings = null)
     {
@@ -78,6 +78,10 @@ public class RubySerializer
         if (valueType == typeof(BigInteger))
             return SerializeBigInt((BigInteger)value);
 
+        var customConverter = SerializationHelper.GetBackConverter(value);
+        if (customConverter != null)
+            return SerializeValue(customConverter.ConvertBack(value));
+        
         if (typeof(IList).IsAssignableFrom(valueType))
             return SerializeArray((IList)value);
 

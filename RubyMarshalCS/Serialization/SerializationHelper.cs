@@ -23,7 +23,7 @@ public static class SerializationHelper
             else if (attr.GetType() == typeof(RubyUserSerializerAttribute))
                 RegisterUserObjectSerializer(t, ((RubyUserSerializerAttribute)attr).Type);
             else if (attr.GetType() == typeof(CustomConverterAttribute))
-                RegisterCustomConverter(((CustomConverterAttribute)attr).Type);
+                RegisterCustomConverter(t);
         }
     }
 
@@ -65,6 +65,9 @@ public static class SerializationHelper
 
     private static void RegisterCustomConverter(Type type)
     {
+        if (!typeof(ICustomConverter).IsAssignableFrom(type))
+            throw new Exception($"Type {type} must implement ICustomConverter attribute");
+        
         _customConverters.Add((ICustomConverter)Activator.CreateInstance(type)!);
     }
 
@@ -334,7 +337,7 @@ public static class SerializationHelper
 
         if (o.GetType() != typeof(SpecialString))
         {
-            throw new Exception("DEBUG");
+            // throw new Exception("DEBUG");
         }
 
         var dataParam = Expression.Parameter(typeof(object), "data");
@@ -347,11 +350,12 @@ public static class SerializationHelper
 
     private static ICustomConverter? GetCustomConverter(object o, Type type)
     {
-        foreach (var converter in _customConverters)
-            if (converter.CanConvert(o, type))
-                return converter;
+        return _customConverters.FirstOrDefault(converter => converter.CanConvert(o, type));
+    }
 
-        return null;
+    public static ICustomConverter? GetBackConverter(object o)
+    {
+        return _customConverters.FirstOrDefault(converter => converter.CanConvertBack(o));
     }
 
     public static object? AssignmentConversion(Type t, object? o, bool allowDynamic)

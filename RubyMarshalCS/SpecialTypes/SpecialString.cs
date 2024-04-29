@@ -62,6 +62,11 @@ public class SpecialString
     {
         return value.Value;
     }
+    
+    public static implicit operator SpecialString(string value)
+    {
+        return new SpecialString(value);
+    }
 
     public override string ToString() => _value;
 }
