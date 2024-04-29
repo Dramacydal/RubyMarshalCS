@@ -15,21 +15,21 @@ public abstract class AbstractCustomConverter<TSource, TTarget> : ICustomConvert
         return o.GetType() == typeof(TTarget);
     }
 
-    protected abstract void Convert(TSource from, out TTarget to);
-    protected abstract void Convert(TTarget from, out TSource to);
+    protected abstract void ConvertForward(TSource from, out TTarget to);
+    protected abstract void ConvertBack(TTarget from, out TSource to);
 
     public object Convert(object value, Type type)
     {
         if (type == typeof(TTarget))
         {
-            Convert((TSource)value, out var val);
+            ConvertForward((TSource)value, out var val);
 
             return val!;
         }
 
         if (type == typeof(TSource))
         {
-            Convert((TTarget)value, out var val);
+            ConvertBack((TTarget)value, out var val);
 
             return val!;
         }
