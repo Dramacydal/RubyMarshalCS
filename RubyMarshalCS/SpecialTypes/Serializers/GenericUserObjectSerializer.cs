@@ -13,9 +13,4 @@ public class GenericUserObjectSerializer : AbstractRubyUserSerializer<GenericUse
     {
         writer.Write(obj.Data);
     }
-
-    public override string GetObjectName(GenericUserObject obj)
-    {
-        return obj.Name;
-    }
 }

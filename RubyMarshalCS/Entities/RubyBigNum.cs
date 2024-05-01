@@ -46,7 +46,7 @@ public class RubyBigNum : AbstractEntity
 
         for (;;)
         {
-            if (other == 0)
+            if (other == BigInteger.Zero)
                 break;
 
             var d = (ushort)(other & 0xFFFF);
@@ -55,10 +55,7 @@ public class RubyBigNum : AbstractEntity
             other >>= 16;
         }
 
-        if (Value >= 0)
-            writer.Write(PositiveSign);
-        else
-            writer.Write(NegativeSign);
+        writer.Write(Value >= 0 ? PositiveSign : NegativeSign);
 
         writer.WriteFixNum(digits.Count);
         foreach (var t in digits)

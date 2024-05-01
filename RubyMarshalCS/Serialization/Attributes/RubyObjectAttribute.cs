@@ -3,10 +3,13 @@
 [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
 public class RubyObjectAttribute : Attribute
 {
-    public RubyObjectAttribute(string name)
+    public string Name { get; }
+
+    public string ContextTag { get; }
+    
+    public RubyObjectAttribute(string name, string contextTag = "")
     {
         Name = name;
+        ContextTag = contextTag;
     }
-
-    public string Name { get; }
 }

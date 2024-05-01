@@ -10,38 +10,102 @@ using RubyMarshalCS.SpecialTypes.Interfaces;
 
 namespace RubyMarshalCS.Serialization;
 
-public static class SerializationHelper
+public class SerializationHelper
 {
-    static SerializationHelper()
+    public static bool AutoRegister { get; set; } = true;
+
+    private SerializationHelper()
     {
+        Initialize();
+    }
+
+    private static SerializationHelper? _instance;
+
+    private static SerializationHelper GetInstance()
+    {
+        if (_instance == null)
+            _instance = new SerializationHelper();
+
+        return _instance;
+    }
+
+    private void Initialize()
+    {
+        if (!AutoRegister)
+            return;
+        
         foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
         foreach (var t in a.GetTypes())
         foreach (var attr in t.GetCustomAttributes())
         {
             if (attr.GetType() == typeof(RubyObjectAttribute))
-                RegisterRubyObject(((RubyObjectAttribute)attr).Name!, t);
+            {
+                var ro = (RubyObjectAttribute)attr;
+                RegisterRubyObject(ro.Name, t, ro.ContextTag);
+            }
             else if (attr.GetType() == typeof(RubyUserSerializerAttribute))
-                RegisterUserObjectSerializer(t, ((RubyUserSerializerAttribute)attr).Type);
+            {
+                var rus = (RubyUserSerializerAttribute)attr;
+                RegisterUserObjectSerializer(t, rus.Type, rus.ContextTag);
+            }
             else if (attr.GetType() == typeof(CustomConverterAttribute))
                 RegisterCustomConverter(t);
         }
     }
 
-    public static void RegisterRubyObject(string name, Type type)
+    public static void RegisterRubyObject(Type t)
     {
-        if (_rubyObjectTypeNamesToTypeMap.ContainsKey(name))
-            throw new Exception($"Ruby object [{name}] already registered");
+        foreach (var attr in t.GetCustomAttributes())
+        {
+            if (attr.GetType() == typeof(RubyObjectAttribute))
+            {
+                var ro = (RubyObjectAttribute)attr;
+                GetInstance().RegisterRubyObject(ro.Name, t, ro.ContextTag);
 
-        _rubyObjectTypeNamesToTypeMap[name] = type;
-        _typeToRubyObjectMap[type] = name;
+                return;
+            }
+        }
+
+        throw new Exception($"Type {t} does not have {nameof(RubyObjectAttribute)} assigned");
     }
 
-    public static void RegisterUserObjectSerializer(Type type, Type serializer)
+    private void RegisterRubyObject(string name, Type type, string tag)
     {
-        if (_userSerializersByType.ContainsKey(type))
-            throw new Exception($"User object serializer for type [{type}] already registered");
+        if (!_rubyObjectTypeNamesToTypeMap.ContainsKey(tag))
+        {
+            _rubyObjectTypeNamesToTypeMap[tag] = new();
+            _typeToRubyObjectMap[tag] = new();
+        }
 
-        // TODO: by default read/write bytes ?
+        if (_rubyObjectTypeNamesToTypeMap[tag].ContainsKey(name))
+            throw new Exception($"Ruby object [{name}] by tag \"{tag}\" already registered");
+
+        _rubyObjectTypeNamesToTypeMap[tag][name] = type;
+        _typeToRubyObjectMap[tag][type] = name;
+    }
+
+    public static void RegisterUserObjectSerializer(Type serializer)
+    {
+        foreach (var attr in serializer.GetCustomAttributes())
+        {
+            if (attr.GetType() == typeof(RubyUserSerializerAttribute))
+            {
+                var rus = (RubyUserSerializerAttribute)attr;
+                GetInstance().RegisterUserObjectSerializer(serializer, rus.Type, rus.ContextTag);
+            }
+        }
+        
+        throw new Exception($"Type {serializer} does not have {nameof(RubyUserSerializerAttribute)} assigned");
+    }
+
+    public void RegisterUserObjectSerializer(Type type, Type serializer, string tag)
+    {
+        if (!_userSerializersByType.ContainsKey(tag))
+            _userSerializersByType[tag] = new();
+
+        if (_userSerializersByType[tag].ContainsKey(type))
+            throw new Exception($"User object serializer for type [{type}] by tag \"{tag}\" already registered");
+
         var found = false;
         foreach (var i in serializer.GetInterfaces())
         {
@@ -60,14 +124,14 @@ public static class SerializationHelper
             throw new Exception(
                 $"User object serializer [{serializer}] does not implement ICustomRubySerializer<> interface");
 
-        _userSerializersByType[type] = serializer;
+        _userSerializersByType[tag][type] = serializer;
     }
 
-    private static void RegisterCustomConverter(Type type)
+    private void RegisterCustomConverter(Type type)
     {
         if (!typeof(ICustomConverter).IsAssignableFrom(type))
             throw new Exception($"Type {type} must implement ICustomConverter attribute");
-        
+
         _customConverters.Add((ICustomConverter)Activator.CreateInstance(type)!);
     }
 
@@ -84,7 +148,7 @@ public static class SerializationHelper
             Type = type;
             Name = name;
         }
-        
+
         public Candidate(CandidateType type, string name, bool isTrash, bool isDynamic)
         {
             Type = type;
@@ -105,7 +169,7 @@ public static class SerializationHelper
         {
             Type = type;
         }
-        
+
         public Type Type { get; }
 
         public readonly Dictionary<string, Candidate> FieldCandidates = new();
@@ -119,12 +183,12 @@ public static class SerializationHelper
 
     private static Dictionary<Type, Tuple<Type, Type>?> _elemenTypeForDictionaryMap = new();
 
-    private static Dictionary<string, Type> _rubyObjectTypeNamesToTypeMap = new();
-    private static Dictionary<Type, string> _typeToRubyObjectMap = new();
+    private Dictionary<string, Dictionary<string, Type>> _rubyObjectTypeNamesToTypeMap = new();
+    private Dictionary<string, Dictionary<Type, string>> _typeToRubyObjectMap = new();
 
-    private static Dictionary<Type, Type> _userSerializersByType = new();
+    private Dictionary<string, Dictionary<Type, Type>> _userSerializersByType = new();
 
-    private static List<ICustomConverter> _customConverters = new();
+    private List<ICustomConverter> _customConverters = new();
 
     public static Candidate? GetFieldCandidate(Type type, string fieldName)
     {
@@ -184,7 +248,8 @@ public static class SerializationHelper
                     throw new Exception(
                         $"Type [{type.DeclaringType.Name}] already have field with attribute [{ra.Name}]");
 
-                info.FieldCandidates[ra.Name] = new(candidateType, name, ra.IsTrash, attributes.Any(_ => _ is RubyDynamicPropertyAttribute));
+                info.FieldCandidates[ra.Name] = new(candidateType, name, ra.IsTrash,
+                    attributes.Any(_ => _ is RubyDynamicPropertyAttribute));
             }
 
             if (attr is RubyExtensionDataAttribute re)
@@ -260,7 +325,7 @@ public static class SerializationHelper
         return null;
     }
 
-    public static Type SearchElementTypeForList(Type type)
+    private static Type SearchElementTypeForList(Type type)
     {
         if (!typeof(IList).IsAssignableFrom(type))
             throw new Exception($"Type [{type}] does not implement IList");
@@ -293,7 +358,7 @@ public static class SerializationHelper
         throw new Exception($"Failed to determine type of generic list [{type}]");
     }
 
-    public static Tuple<Type, Type> SearchElementTypesForDictionary(Type type)
+    private static Tuple<Type, Type> SearchElementTypesForDictionary(Type type)
     {
         if (!typeof(IDictionary).IsAssignableFrom(type))
             throw new Exception($"Type [{type}] does not implement IDictionary");
@@ -350,12 +415,12 @@ public static class SerializationHelper
 
     private static ICustomConverter? GetCustomConverter(object o, Type type)
     {
-        return _customConverters.FirstOrDefault(converter => converter.CanConvert(o, type));
+        return GetInstance()._customConverters.FirstOrDefault(converter => converter.CanConvert(o, type));
     }
 
     public static ICustomConverter? GetBackConverter(object o)
     {
-        return _customConverters.FirstOrDefault(converter => converter.CanConvertBack(o));
+        return GetInstance()._customConverters.FirstOrDefault(converter => converter.CanConvertBack(o));
     }
 
     public static object? AssignmentConversion(Type t, object? o, bool allowDynamic)
@@ -443,12 +508,19 @@ public static class SerializationHelper
         return newDict;
     }
 
-    public static Type? GetTypeForRubyObjectTypeName(string rubyObjectTypeName) =>
-        _rubyObjectTypeNamesToTypeMap.FirstOrDefault(_ => _.Key == rubyObjectTypeName).Value;
+    public static Type? GetTypeForRubyObjectTypeName(string rubyObjectTypeName, string tag)
+    {
+        return GetInstance()._rubyObjectTypeNamesToTypeMap.FirstOrDefault(_ => _.Key == tag).Value?
+            .FirstOrDefault(_ => _.Key == rubyObjectTypeName).Value;
+    }
 
-    public static string? GetRubyObjectTypeNameForType(Type type) =>
-        _rubyObjectTypeNamesToTypeMap.FirstOrDefault(_ => _.Value == type).Key;
+    public static string? GetRubyObjectTypeNameForType(Type type, string tag)
+    {
+        return GetInstance()._rubyObjectTypeNamesToTypeMap.FirstOrDefault(_ => _.Key == tag).Value?.FirstOrDefault(_ => _.Value == type).Key;
+    }
 
-    public static Type? GetUserSerializerByType(Type type) =>
-        _userSerializersByType.FirstOrDefault(_ => _.Key == type).Value;
+    public static Type? GetUserSerializerByType(Type type, string tag)
+    {
+        return GetInstance()._userSerializersByType.FirstOrDefault(_ => _.Key == tag).Value?.FirstOrDefault(_ => _.Key == type).Value;
+    }
 }

@@ -88,11 +88,11 @@ public class RubySerializer
         if (typeof(IDictionary).IsAssignableFrom(valueType))
             return SerializeDictionary((IDictionary)value);
 
-        var serializerType = SerializationHelper.GetUserSerializerByType(valueType);
+        var serializerType = SerializationHelper.GetUserSerializerByType(valueType, _settings.ContextTag);
         if (serializerType != null)
             return SerializeUserObject(serializerType, value);
 
-        var rubyObjectTypeName = SerializationHelper.GetRubyObjectTypeNameForType(valueType);
+        var rubyObjectTypeName = SerializationHelper.GetRubyObjectTypeNameForType(valueType, _settings.ContextTag);
         if (!string.IsNullOrEmpty(rubyObjectTypeName))
             return SerializeObject(rubyObjectTypeName, value);
 
@@ -113,8 +113,11 @@ public class RubySerializer
 
         serializerType.GetMethod("Write")!.Invoke(serializer, new[] { value, writer });
 
-        var rubyObjectTypeName = (string)serializerType.GetMethod("GetObjectName")!.Invoke(serializer, new[] { value })!;
-        ru.ClassName = SerializeSymbol(rubyObjectTypeName);
+        if (value is GenericUserObject go)
+            ru.ClassName = SerializeSymbol(go.Name);
+        else
+            ru.ClassName = SerializeSymbol(SerializationHelper.GetRubyObjectTypeNameForType(value.GetType(), _settings.ContextTag)!);
+
         ru.Bytes = stream.GetTrimmedBuffer();
 
         _serializedObjects[value] = ru;

@@ -145,7 +145,7 @@ public class RubyDeserializer
                 var ru = (RubyUserDefined)e;
                 var objectName = ru.GetRealClassName();
 
-                var objectType = SerializationHelper.GetTypeForRubyObjectTypeName(objectName);
+                var objectType = SerializationHelper.GetTypeForRubyObjectTypeName(objectName, _settings.ContextTag);
                 if (objectType == null)
                     if (_settings.AllowGenericUserObjects)
                         objectType = typeof(GenericUserObject);
@@ -166,7 +166,7 @@ public class RubyDeserializer
                 var ro = (RubyObject)e;
 
                 var objectName = ro.GetRealClassName();
-                var objectType = SerializationHelper.GetTypeForRubyObjectTypeName(objectName);
+                var objectType = SerializationHelper.GetTypeForRubyObjectTypeName(objectName, _settings.ContextTag);
                 if (objectType == null)
                     throw new Exception($"Unsupported object [{objectName}]");
 
@@ -232,7 +232,7 @@ public class RubyDeserializer
 
     private object DeserializeUserDefinedObject(string objectName, Type type, RubyUserDefined data)
     {
-        var serializerType = SerializationHelper.GetUserSerializerByType(type);
+        var serializerType = SerializationHelper.GetUserSerializerByType(type, _settings.ContextTag);
         if (serializerType == null)
             throw new Exception(
                 $"Class [{type}] is used for user-defined ruby object serialization and needs a custom serializer");
