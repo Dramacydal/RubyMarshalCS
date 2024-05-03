@@ -1,63 +1,57 @@
-﻿using RubyMarshalCS.Entities;
-using RubyMarshalCS.Enums;
+﻿using RubyMarshalCS.Enums;
 using RubyMarshalCS.Settings;
+using RubyMarshalCS.Entities;
 
 namespace RubyMarshalCS;
 
 public class SerializationContext
 {
-    private static readonly List<RubyCodes> LinkableObjectTypes = new()
-    {
-        RubyCodes.Array,
-        RubyCodes.Hash,
-        RubyCodes.HashDef,
-        RubyCodes.InstanceVar,
-        RubyCodes.Object,
-        RubyCodes.Class,
-        RubyCodes.Extended,
-        RubyCodes.Float,
-        RubyCodes.BigNum,
-        RubyCodes.String,
-        RubyCodes.UserDefined,
-        RubyCodes.UserMarshal,
-    };
-
     private static readonly Dictionary<RubyCodes, Type> CodeToObjectTypeMap = new()
     {
         [RubyCodes.String] = typeof(RubyString),
+        [RubyCodes.RegExp] = typeof(RubyRegExp),
         [RubyCodes.Nil] = typeof(RubyNil),
         [RubyCodes.Symbol] = typeof(RubySymbol),
         [RubyCodes.SymbolLink] = typeof(RubySymbolLink),
         [RubyCodes.ObjectLink] = typeof(RubyObjectLink),
         [RubyCodes.False] = typeof(RubyFalse),
-        [RubyCodes.InstanceVar] = typeof(RubyInstanceVariable),
         [RubyCodes.True] = typeof(RubyTrue),
         [RubyCodes.Array] = typeof(RubyArray),
         [RubyCodes.Float] = typeof(RubyFloat),
         [RubyCodes.FixNum] = typeof(RubyFixNum),
         [RubyCodes.BigNum] = typeof(RubyBigNum),
         [RubyCodes.Object] = typeof(RubyObject),
+        [RubyCodes.Struct] = typeof(RubyStruct),
         [RubyCodes.Class] = typeof(RubyClass),
-        [RubyCodes.Extended] = typeof(RubyExtended),
+        [RubyCodes.Module] = typeof(RubyModule),
+        [RubyCodes.ModuleOld] = typeof(RubyModuleOld),
         [RubyCodes.UserDefined] = typeof(RubyUserDefined),
         [RubyCodes.UserMarshal] = typeof(RubyUserMarshal),
         [RubyCodes.Hash] = typeof(RubyHash),
-        [RubyCodes.HashDef] = typeof(RubyHashDef),
+        [RubyCodes.Data] = typeof(RubyData),
     };
 
-    private readonly List<AbstractEntity> _objectInstances = new();
-    private readonly List<AbstractEntity> _objectLinks = new();
-
     private readonly SerializationSettings _settings = new();
+    private readonly List<AbstractEntity> _objectInstances = new();
     private readonly List<AbstractEntity> _symbolInstances = new();
-    private readonly List<AbstractEntity> _symbolLinks = new();
+    public readonly List<AbstractEntity> _allObjects = new();
 
     public SerializationContext(SerializationSettings? settings = null)
     {
         _settings = settings ?? _settings;
     }
 
-    public RubySymbol LookupSymbol(AbstractEntity symbolOrLink)
+    public void RememberObject(AbstractEntity entity)
+    {
+        _objectInstances.Add(entity);
+    }
+    
+    public void RememberSymbol(AbstractEntity entity)
+    {
+        _symbolInstances.Add(entity);
+    }
+
+    public RubySymbol LookupRememberedSymbol(AbstractEntity symbolOrLink)
     {
         if (symbolOrLink.Code == RubyCodes.Symbol)
             return (RubySymbol)symbolOrLink;
@@ -73,7 +67,7 @@ public class SerializationContext
         throw new Exception("Entity is not symbol or link");
     }
 
-    public AbstractEntity LookupObject(AbstractEntity objectOrLink)
+    public AbstractEntity LookupRememberedObject(AbstractEntity objectOrLink)
     {
         if (objectOrLink.Code == RubyCodes.ObjectLink)
         {
@@ -86,83 +80,28 @@ public class SerializationContext
 
         return objectOrLink;
     }
+    
+    public int LookupStoredObjectIndex(AbstractEntity entity) => _objectInstances.IndexOf(entity);
+    
+    public int LookupStoredSymbolIndex(AbstractEntity entity) => _symbolInstances.IndexOf(entity);
 
-    public AbstractEntity Create(RubyCodes code, bool skipObjectStore = false)
+    public AbstractEntity Create(RubyCodes code)
     {
         if (!CodeToObjectTypeMap.TryGetValue(code, out var type))
             throw new Exception($"Unsupported code {code}");
 
         var e = Activator.CreateInstance(type) as AbstractEntity;
         e!.Context = this;
-
-        if (code == RubyCodes.Symbol)
-            _symbolInstances.Add(e);
-        else if (!skipObjectStore && LinkableObjectTypes.Contains(code))
-            _objectInstances.Add(e);
         
-        if (e.Code == RubyCodes.ObjectLink)
-            _objectLinks.Add(e);
-        else if (e.Code == RubyCodes.SymbolLink)
-            _symbolLinks.Add(e);
+        _allObjects.Add(e);
 
         return e;
-    }
-
-    public AbstractEntity Read(BinaryReader reader, bool skipObjectStore = false)
-    {
-        var code = reader.ReadByte();
-        var e = Create((RubyCodes)code, skipObjectStore);
-        e.ReadData(reader);
-
-        if (_settings.ResolveLinks)
-        {
-            if (e.Code == RubyCodes.ObjectLink)
-                e = LookupObject(e);
-            else if (e.Code == RubyCodes.SymbolLink)
-                e = LookupSymbol(e);
-        }
-
-        return e;
-    }
-
-    public void Write(BinaryWriter writer, AbstractEntity entity, bool skipObjectStore = false)
-    {
-        if (!skipObjectStore)
-        {
-            if (LinkableObjectTypes.Contains(entity.Code))
-            {
-                var index = _objectInstances.IndexOf(entity);
-                if (index != -1)
-                {
-                    Write(writer, new RubyObjectLink() { ReferenceId = index });
-                    return;
-                }
-
-                _objectInstances.Add(entity);
-            }
-            else if (entity.Code == RubyCodes.Symbol)
-            {
-                var index = _symbolInstances.IndexOf((RubySymbol)entity);
-                if (index != -1)
-                {
-                    Write(writer, new RubySymbolLink() { ReferenceId = index });
-                    return;
-                }
-
-                _symbolInstances.Add(entity);
-            }
-        }
-
-        writer.Write((byte)entity.Code);
-        entity.WriteData(writer);
     }
 
     public void Reset()
     {
         _symbolInstances.Clear();
-        _symbolLinks.Clear();
-        
         _objectInstances.Clear();
-        _objectLinks.Clear();
+        _allObjects.Clear();
     }
 }

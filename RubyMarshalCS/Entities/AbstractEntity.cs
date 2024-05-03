@@ -11,16 +11,18 @@ public abstract class AbstractEntity
 
     public abstract RubyCodes Code { get; protected set; }
     
-    public abstract void ReadData(BinaryReader reader);
+    public readonly List<AbstractEntity> Modules = new();
 
-    public abstract void WriteData(BinaryWriter writer);
+    public AbstractEntity? UserClass;
 
+    public readonly List<KeyValuePair<AbstractEntity, AbstractEntity>> InstanceVariables = new();
+    
     public AbstractEntity ResolveIfLink()
     {
         return Code switch
         {
-            RubyCodes.SymbolLink => Context.LookupSymbol(this),
-            RubyCodes.ObjectLink => Context.LookupObject(this),
+            RubyCodes.SymbolLink => Context.LookupRememberedSymbol(this),
+            RubyCodes.ObjectLink => Context.LookupRememberedObject(this),
             _ => this
         };
     }

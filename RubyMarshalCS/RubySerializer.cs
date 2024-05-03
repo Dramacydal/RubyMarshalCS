@@ -12,6 +12,9 @@ namespace RubyMarshalCS;
 
 public class RubySerializer
 {
+    private const int FixNumMin = -1073741824;
+    private const int FixNumMax = 1073741823;
+    
     private readonly SerializationContext _context;
     private readonly SerializationSettings _settings;
 
@@ -55,11 +58,25 @@ public class RubySerializer
             case TypeCode.SByte:
             case TypeCode.UInt16:
             case TypeCode.Int16:
-            case TypeCode.UInt32:
-            case TypeCode.Int32:
-            case TypeCode.UInt64:
-            case TypeCode.Int64:
                 return SerializeInt((int)value);
+            case TypeCode.UInt32:
+            case TypeCode.UInt64:
+            {
+                var val = (ulong)value;
+                if (val <= FixNumMax)
+                    return SerializeInt((int)value);
+
+                return SerializeBigInt(val);
+            }
+            case TypeCode.Int64:
+            case TypeCode.Int32:
+            {
+                long val = (long)value;
+                if (val <= FixNumMax && val >= FixNumMin)
+                    return SerializeInt((int)value);
+
+                return SerializeBigInt(val);
+            }
             case TypeCode.Boolean:
                 return (bool)value ? _context.Create(RubyCodes.True) : _context.Create(RubyCodes.False);
             case TypeCode.Decimal:
@@ -149,7 +166,7 @@ public class RubySerializer
             else if (fieldCandidate.Type == SerializationHelper.CandidateType.Property)
                 fieldValue = objectType.GetProperty(fieldCandidate.Name)!.GetValue(value);
 
-            ro.Fields.Add(new(SerializeSymbol(fieldName), SerializeValue(fieldValue)));
+            ro.Attributes.Add(new(SerializeSymbol(fieldName), SerializeValue(fieldValue)));
         }
 
         if (info.ExtensionDataCandidate != null)
@@ -170,7 +187,7 @@ public class RubySerializer
     private void WriteUnknownObjectFields(Dictionary<string, object?> map, RubyObject ro)
     {
         foreach (var (field, value) in map)
-            ro.Fields.Add(new(SerializeSymbol(field), SerializeValue(value)));
+            ro.Attributes.Add(new(SerializeSymbol(field), SerializeValue(value)));
     }
 
     private AbstractEntity SerializeInt(int value)
@@ -219,6 +236,9 @@ public class RubySerializer
         foreach (DictionaryEntry v in value)
             rh.Pairs.Add(new(SerializeValue(v.Key), SerializeValue(v.Value)));
 
+        if (value is IDefDictionary dd)
+            rh.Default = SerializeValue(dd.DefaultValue);
+
         return rh;
     }
 
@@ -236,40 +256,58 @@ public class RubySerializer
 
         return ra;
     }
-
+    
     private AbstractEntity SerializeString(string value, Encoding encoding)
     {
-        return SerializeString(encoding.GetBytes(value));
+        return SerializeString(encoding.GetBytes(value), encoding);
     }
 
     private AbstractEntity SerializeString(SpecialString value)
     {
-        return SerializeString(value.Bytes);
+        return SerializeString(value.Bytes, value.Encoding);
     }
 
-    private AbstractEntity SerializeString(byte[] value)
+    private AbstractEntity SerializeString(byte[] value, Encoding encoding)
     {
         var asHex = Convert.ToHexString(value);
 
         if (_serializedStrings.ContainsKey(asHex))
             return _serializedStrings[asHex];
 
-        var iv = (RubyInstanceVariable)_context.Create(RubyCodes.InstanceVar, true);
+        var rs = (RubyString)_context.Create(RubyCodes.String);
 
-        _serializedStrings[asHex] = iv;
+        _serializedStrings[asHex] = rs;
 
-        var str = (RubyString)_context.Create(RubyCodes.String);
-        str.Bytes = value;
+        rs.Bytes = value;
 
-        var rs = SerializeSymbol("E");
+        AbstractEntity? encodingValue = null;
 
-        iv.Object = str;
-        iv.Variables.Add(new(rs, _context.Create(RubyCodes.True)));
-        // True - UTF-8
-        // False - ASCII
-        // string - other encoding name
+        switch (encoding.CodePage)
+        {
+            case 1200:
+                encodingValue = SerializeString("UTF-16LE");
+                break;
+            case 1201:
+                encodingValue = SerializeString("UTF-16BE");
+                break;
+            case 1252:
+                // ASCII-8bit
+                break;
+            case 20127:
+                encodingValue = _context.Create(RubyCodes.False);
+                break;
+            case 28591:
+                encodingValue = SerializeString("ISO-8859-1");
+                break;
+            case 65001:
+                encodingValue = _context.Create(RubyCodes.True);
+                break;
+        }
 
-        return iv;
+        if (encodingValue != null)
+            rs.InstanceVariables.Add(new(SerializeSymbol("E"), encodingValue));
+
+        return rs;
     }
 
     private AbstractEntity SerializeSymbol(string value)
@@ -278,7 +316,8 @@ public class RubySerializer
             return _serializedSymbols[value];
 
         var rs = (RubySymbol)_context.Create(RubyCodes.Symbol);
-        rs.Name = value;
+        // TODO: strictly ASCII-8 bit encoding here
+        rs.Value = Encoding.UTF8.GetBytes(value);
 
         _serializedSymbols[value] = rs;
 

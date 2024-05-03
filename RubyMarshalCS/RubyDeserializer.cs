@@ -31,7 +31,7 @@ public class RubyDeserializer
     {
         var obj = Activator.CreateInstance(type)!;
 
-        foreach (var (key, value) in data.Fields)
+        foreach (var (key, value) in data.Attributes)
         {
             var fieldName = key.ResolveIfLink().ToString()!;
 
@@ -92,19 +92,26 @@ public class RubyDeserializer
         switch (e.Code)
         {
             case RubyCodes.Symbol:
-                return ((RubySymbol)e).ToString();
-            case RubyCodes.String:
-                return new SpecialString(((RubyString)e).Bytes, Encoding.UTF8);
-            case RubyCodes.InstanceVar:
             {
                 if (_objectConversionMap.ContainsKey(e))
                     return _objectConversionMap[e];
 
-                var c = DeserializeInstanceVariable((RubyInstanceVariable)e);
+                var value = LookupEncoding(e).GetString(((RubySymbol)e).Value);
 
-                _objectConversionMap[e] = c;
+                _objectConversionMap[e] = value;
 
-                return c;
+                return value;
+            }
+            case RubyCodes.String:
+            {
+                if (_objectConversionMap.ContainsKey(e))
+                    return _objectConversionMap[e];
+
+                var value = new SpecialString(((RubyString)e).Bytes, LookupEncoding(e));
+
+                _objectConversionMap[e] = value;
+
+                return value;
             }
             case RubyCodes.Array:
             {
@@ -128,8 +135,20 @@ public class RubyDeserializer
                 if (_objectConversionMap.ContainsKey(e))
                     return _objectConversionMap[e];
 
-                IDictionary dict = new Dictionary<object, object>();
-                
+                var hash = (RubyHash)e;
+
+                IDictionary dict;
+                if (hash.Default != null)
+                {
+                    var dd = new DefDictionary<object, object>
+                    {
+                        DefaultValue = DeserializeEntity(hash.Default)
+                    };
+                    dict = dd;
+                }
+                else
+                    dict = new Dictionary<object, object>();
+
                 _objectConversionMap[e] = dict;
 
                 foreach (var re in ((RubyHash)e).Pairs)
@@ -193,41 +212,30 @@ public class RubyDeserializer
         throw new Exception($"Unsupported Ruby object [{e.GetType()}]");
     }
 
-    private object DeserializeInstanceVariable(RubyInstanceVariable riv)
+    private Encoding LookupEncoding(AbstractEntity entity)
     {
-        var res = DeserializeEntity(riv.Object)!;
-        if (riv.Object.Code == RubyCodes.String)
+        foreach (var (key, value) in entity.InstanceVariables)
         {
-            if (riv.Variables.Count != 1)
-                throw new Exception($"{nameof(RubyString)} instance variable is expected 1 parameter");
-
-            var v = riv.Variables[0];
-
-            var realVar = riv.Context.LookupSymbol(v.Key);
-            
-            if (realVar.ToString() == "E")
+            if (key.ResolveIfLink().ToString() == "E")
             {
-                if (v.Value is RubyTrue)
-                    ((SpecialString)res).Encoding = Encoding.UTF8;
-                else if (v.Value is RubyFalse)
-                    ((SpecialString)res).Encoding = Encoding.ASCII;
-                else
+                var e = DeserializeEntity(value);
+                if (e is bool b)
+                    return b ? Encoding.UTF8 : Encoding.ASCII;
+
+                return e?.ToString() switch
                 {
-                    // string encoding
-                }
+                    "UTF-8" => Encoding.UTF8,
+                    "US-ASCII" => Encoding.ASCII,
+                    "UTF-16LE" => Encoding.GetEncoding("UTF-16LE"),
+                    "UTF-16BE" => Encoding.GetEncoding("UTF-16BE"),
+                    "ISO-8859-1" => Encoding.Latin1,
+                    "ASCII-8BIT" => SerializationHelper.ASCII8BitEncoding,
+                    _ => throw new Exception($"Unsupported encoding [{e}]")
+                };
             }
-            
-            // True - UTF-8
-            // False - ASCII
-            // string - other encoding name
         }
-        
-        if (riv.Object.Code != RubyCodes.String)
-        {
-            Debug.WriteLine(123);
-        }
-            
-        return res;
+
+        return SerializationHelper.ASCII8BitEncoding;
     }
 
     private object DeserializeUserDefinedObject(string objectName, Type type, RubyUserDefined data)

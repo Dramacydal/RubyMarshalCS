@@ -5,8 +5,6 @@ namespace RubyMarshalCS;
 
 public static class RubyMarshal
 {
-    private const ushort HeaderMagic = 0x804;
-
     public static T? Load<T>(byte[] bytes, SerializationSettings? settings = null)
     {
         return RubyDeserializer.Deserialize<T>(Load(bytes, settings), settings);
@@ -45,14 +43,12 @@ public static class RubyMarshal
 
         return Load(reader, settings);
     }
-    
+
     public static AbstractEntity Load(BinaryReader reader, SerializationSettings? settings = null)
     {
-        var version = reader.ReadUInt16();
-        if (version != HeaderMagic)
-            throw new Exception($"Wrong ruby serializer version: {version}");
+        var rr = new RubyReader(reader, settings);
 
-        return new SerializationContext(settings).Read(reader);
+        return rr.Read();
     }
 
     public static void Dump<T>(string path, T? obj, SerializationSettings? settings = null)
@@ -97,10 +93,9 @@ public static class RubyMarshal
 
     public static void Dump(BinaryWriter writer, AbstractEntity entity)
     {
-        writer.Write(HeaderMagic);
+        var rw = new RubyWriter(writer);
 
-        entity.Context.Reset();
-        entity.Context.Write(writer, entity);
+        rw.Write(entity);
     }
 
     public static byte[] Dump(AbstractEntity entity)

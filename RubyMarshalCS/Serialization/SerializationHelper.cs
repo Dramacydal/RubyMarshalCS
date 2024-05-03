@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text;
 using RubyMarshalCS.Conversion.Attributes;
 using RubyMarshalCS.Conversion.Interfaces;
 using RubyMarshalCS.Serialization.Attributes;
@@ -13,6 +14,14 @@ namespace RubyMarshalCS.Serialization;
 public class SerializationHelper
 {
     public static bool AutoRegister { get; set; } = true;
+    
+    public static readonly Encoding ASCII8BitEncoding;
+
+    static SerializationHelper()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        ASCII8BitEncoding = Encoding.GetEncoding(1252);
+    }
 
     private SerializationHelper()
     {
@@ -489,20 +498,31 @@ public class SerializationHelper
         else
             throw new Exception($"Type {newType} does not implement IList");
 
+        if (typeof(IDefDictionary).IsAssignableFrom(newType) ^ dict is IDefDictionary)
+        {
+            throw new Exception($"Both must be or must not be {nameof(IDefDictionary)}");
+        }
+
         foreach (DictionaryEntry e in dict)
         {
             object key, value;
-            if (e.Key != null && valueType.Item1 != typeof(object) && valueType.Item1 != e.Key.GetType())
+            if (e.Key != null)
                 key = ManualCast(valueType.Item1, e.Key);
             else
                 key = e.Key;
 
-            if (e.Value != null && valueType.Item2 != typeof(object) && valueType.Item2 != e.Value.GetType())
+            if (e.Value != null)
                 value = ManualCast(valueType.Item2, e.Value);
             else
                 value = e.Value;
 
             newDict.Add(key, value);
+        }
+
+        if (dict is IDefDictionary dd)
+        {
+            ((IDefDictionary)newDict).DefaultValue =
+                dd.DefaultValue != null ? ManualCast(valueType.Item2, dd.DefaultValue) : null;
         }
 
         return newDict;

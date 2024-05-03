@@ -1,4 +1,9 @@
-﻿namespace RubyMarshalCS;
+﻿using System.Globalization;
+using System.Numerics;
+using System.Text;
+using RubyMarshalCS.Enums;
+
+namespace RubyMarshalCS;
 
 public static class LibExtensions
 {
@@ -186,6 +191,100 @@ public static class LibExtensions
     {
         writer.WriteFixNum(value.Length);
         writer.Write(value);
+    }
+
+    public static double ReadPackedFloat(this BinaryReader reader)
+    {
+        var bytes = reader.ReadByteSequence().TakeWhile(_ => _ != 0).ToArray();
+        var str = Encoding.ASCII.GetString(bytes);
+
+        return str switch
+        {
+            "inf" => double.PositiveInfinity,
+            "-inf" => double.NegativeInfinity,
+            "nan" => double.NaN,
+            _ => double.Parse(str, CultureInfo.InvariantCulture)
+        };
+    }
+
+    public static void WritePackedFloat(this BinaryWriter writer, double value)
+    {
+        if (double.IsNaN(value))
+            writer.WriteByteSequence(Encoding.ASCII.GetBytes("nan"));
+        else if (double.IsPositiveInfinity(value))
+            writer.WriteByteSequence(Encoding.ASCII.GetBytes("inf"));
+        else if (double.IsNegativeInfinity(value))
+            writer.WriteByteSequence(Encoding.ASCII.GetBytes("-inf"));
+        else
+        {
+            var str = value.ToString(CultureInfo.InvariantCulture);
+            writer.WriteByteSequence(Encoding.ASCII.GetBytes(str));
+        }
+    }
+
+    private const byte PositiveSign = 43;
+    private const byte NegativeSign = 45;
+
+    public static BigInteger ReadPackedBigInteger(this BinaryReader reader)
+    {
+        var sign = reader.ReadByte();
+
+        List<ushort> digits = new();
+        var len = reader.ReadFixNum();
+        for (var i = 0; i < len; ++i)
+            digits.Add(reader.ReadUInt16());
+
+        BigInteger result = new();
+
+        for (var i = 0; i < digits.Count; ++i)
+        {
+            BigInteger bigIntDigit = digits[i];
+
+            result += bigIntDigit << (16 * i);
+        }
+
+        if (sign == NegativeSign)
+            result *= -1;
+
+        return result;
+    }
+
+    public static void WritePackedBigInteger(this BinaryWriter writer, BigInteger value)
+    {
+        List<ushort> digits = new();
+
+        var other = value;
+        if (other < 0)
+            other *= -1;
+
+        for (;;)
+        {
+            if (other == BigInteger.Zero)
+                break;
+
+            var d = (ushort)(other & 0xFFFF);
+            digits.Add(d);
+
+            other >>= 16;
+        }
+
+        writer.Write(value >= 0 ? PositiveSign : NegativeSign);
+
+        writer.WriteFixNum(digits.Count);
+        foreach (var t in digits)
+            writer.Write(t);
+    }
+
+    private static readonly Dictionary<RubyRegexpOptions, char> BitsToChar = new()
+    {
+        [RubyRegexpOptions.IgnoreCase] = 'i',
+        [RubyRegexpOptions.Extend] = 'e',
+        [RubyRegexpOptions.Multiline] = 'm',
+    };
+
+    public static string AsString(this RubyRegexpOptions options)
+    {
+        return string.Join("", BitsToChar.Where(_ => options.HasFlag(_.Key)).Select(_ => _.Value));
     }
 
     public static byte[] GetTrimmedBuffer(this MemoryStream stream)

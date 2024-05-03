@@ -8,4 +8,5 @@ public class SerializationSettings
     public bool EnsureExtensionDataPresent { get; set; } = true;
     public bool WriteTrashProperties { get; set; } = true;
     public bool AllowGenericUserObjects { get; set; } = false;
+    public bool EnsureEOF { get; set; }
 }

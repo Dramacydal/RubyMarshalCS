@@ -10,52 +10,54 @@ public class SpecialString
 
     private byte[] _bytes = Array.Empty<byte>();
 
-    public string Value
-    {
-        get => _value;
-        set
-        {
-            _value = value;
-            _bytes = _encoding.GetBytes(_value);
-        }
-    }
+    public string Value => _value;
 
-    public Encoding Encoding
-    {
-        get => _encoding;
-        set
-        {
-            if (value == _encoding)
-                return;
-            
-            _encoding = value;
-            _value = _encoding.GetString(_bytes);
-        }
-    }
+    public Encoding Encoding => _encoding;
 
-    public byte[] Bytes
-    {
-        get => _bytes;
-        set
-        {
-            _bytes = value;
-            _value = Encoding.GetString(_bytes);
-        }
-    }
-
-    public SpecialString(string value)
-    {
-        Value = value;
-    }
+    public byte[] Bytes => _bytes;
 
     public SpecialString()
     {
     }
-    
+
+    public SpecialString(string value)
+    {
+        Set(value, Encoding.UTF8);
+    }
+
     public SpecialString(byte[] bytes, Encoding encoding)
     {
+        Set(bytes, encoding);
+    }
+
+    public void Set(byte[] bytes, Encoding encoding)
+    {
         _encoding = Encoding;
-        Bytes = bytes;
+        _bytes = bytes;
+
+        _value = Encoding.GetString(bytes);
+    }
+
+    public void Set(string value, Encoding encoding)
+    {
+        _encoding = Encoding;
+        _value = value;
+
+        _bytes = Encoding.GetBytes(_value);
+    }
+
+    public void Reencode(Encoding encoding)
+    {
+        _encoding = encoding;
+
+        _bytes = encoding.GetBytes(_value);
+    }
+
+    public void ChangeEncoding(Encoding encoding)
+    {
+        _encoding = encoding;
+
+        _value = encoding.GetString(_bytes);
     }
 
     public static implicit operator string(SpecialString value)
