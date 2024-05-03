@@ -28,8 +28,8 @@ public class RubyObject : AbstractEntity
     public override void WriteData(BinaryWriter writer)
     {
         Context.Write(writer, ClassName);
+        
         writer.WriteFixNum(Fields.Count);
-
         foreach (var field in Fields)
         {
             Context.Write(writer, field.Key);

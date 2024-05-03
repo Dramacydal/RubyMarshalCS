@@ -10,12 +10,16 @@ public class SerializationContext
     {
         RubyCodes.Array,
         RubyCodes.Hash,
+        RubyCodes.HashDef,
         RubyCodes.InstanceVar,
         RubyCodes.Object,
+        RubyCodes.Class,
+        RubyCodes.Extended,
         RubyCodes.Float,
         RubyCodes.BigNum,
         RubyCodes.String,
         RubyCodes.UserDefined,
+        RubyCodes.UserMarshal,
     };
 
     private static readonly Dictionary<RubyCodes, Type> CodeToObjectTypeMap = new()
@@ -33,8 +37,12 @@ public class SerializationContext
         [RubyCodes.FixNum] = typeof(RubyFixNum),
         [RubyCodes.BigNum] = typeof(RubyBigNum),
         [RubyCodes.Object] = typeof(RubyObject),
+        [RubyCodes.Class] = typeof(RubyClass),
+        [RubyCodes.Extended] = typeof(RubyExtended),
         [RubyCodes.UserDefined] = typeof(RubyUserDefined),
+        [RubyCodes.UserMarshal] = typeof(RubyUserMarshal),
         [RubyCodes.Hash] = typeof(RubyHash),
+        [RubyCodes.HashDef] = typeof(RubyHashDef),
     };
 
     private readonly List<AbstractEntity> _objectInstances = new();
