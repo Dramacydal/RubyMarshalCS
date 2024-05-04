@@ -9,11 +9,11 @@ namespace RubyMarshalCS;
 
 public class RubyReader
 {
-    private readonly SerializationSettings _settings;
+    private readonly DeserializationSettings _settings;
     private readonly BinaryReader _reader;
     private SerializationContext _serializationContext;
 
-    public RubyReader(BinaryReader reader, SerializationSettings? settings = null)
+    public RubyReader(BinaryReader reader, DeserializationSettings? settings = null)
     {
         _reader = reader;
         _settings = settings ?? new();
@@ -31,11 +31,11 @@ public class RubyReader
             Action = ReadEntity,
         };
 
-        _serializationContext = new SerializationContext(_settings);
+        _serializationContext = new SerializationContext();
 
         var entity = ReadEntity(readContext);
 
-        if (_settings.EnsureEOF && _reader.BaseStream.Position != _reader.BaseStream.Length)
+        if (_settings.EnsureReadToEnd && _reader.BaseStream.Position != _reader.BaseStream.Length)
             throw new Exception("Trailing data detected");
 
         return entity;

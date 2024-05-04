@@ -2,11 +2,9 @@
 
 public class SerializationSettings
 {
+    // Serialization context tag
     public string ContextTag { get; set; } = "";
-    public bool ResolveLinks { get; set; } = false;
-    public bool EnsureObjects { get; set; } = true;
-    public bool EnsureExtensionDataPresent { get; set; } = true;
-    public bool WriteTrashProperties { get; set; } = true;
-    public bool AllowGenericUserObjects { get; set; } = false;
-    public bool EnsureEOF { get; set; }
+    
+    // Check object properties are In/Out only
+    public bool ConsiderInOutFields { get; set; } = true;
 }

@@ -1,17 +1,19 @@
-﻿namespace RubyMarshalCS.Serialization.Attributes;
+﻿using RubyMarshalCS.Serialization.Enums;
+
+namespace RubyMarshalCS.Serialization.Attributes;
 
 [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field)]
 public class RubyPropertyAttribute : Attribute
 {
-    public RubyPropertyAttribute(string name, bool isTrash = false)
+    public RubyPropertyAttribute(string name, CandidateFlags flags = CandidateFlags.None)
     {
         if (!name.StartsWith("@"))
             throw new Exception($"{name} Must start with @");
         Name = name;
-        IsTrash = isTrash;
+        Flags = flags;
     }
 
     public string Name { get; }
-    
-    public bool IsTrash { get; }
+
+    public CandidateFlags Flags { get; }
 }

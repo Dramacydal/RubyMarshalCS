@@ -1,6 +1,8 @@
-﻿namespace RubyMarshalCS.SpecialTypes.Interfaces;
+﻿using System.Collections;
 
-public interface IDefDictionary
+namespace RubyMarshalCS.SpecialTypes.Interfaces;
+
+public interface IDefDictionary : IDictionary
 {
-    public object DefaultValue { get; set; }
+    public object? DefaultValue { get; set; }
 }

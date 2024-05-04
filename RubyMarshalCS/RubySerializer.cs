@@ -4,6 +4,7 @@ using System.Text;
 using RubyMarshalCS.Entities;
 using RubyMarshalCS.Enums;
 using RubyMarshalCS.Serialization;
+using RubyMarshalCS.Serialization.Enums;
 using RubyMarshalCS.Settings;
 using RubyMarshalCS.SpecialTypes;
 using RubyMarshalCS.SpecialTypes.Interfaces;
@@ -42,7 +43,7 @@ public class RubySerializer
         return Serialize<object>(value, settings);
     }
 
-    private AbstractEntity SerializeValue(object? value)
+    private AbstractEntity SerializeValue(object? value, CandidateFlags flags = CandidateFlags.None)
     {
         if (value == null)
             return _context.Create(RubyCodes.Nil);
@@ -58,65 +59,70 @@ public class RubySerializer
             case TypeCode.SByte:
             case TypeCode.UInt16:
             case TypeCode.Int16:
-                return SerializeInt((int)value);
+                return SerializeInt((int)value, flags);
             case TypeCode.UInt32:
             case TypeCode.UInt64:
             {
                 var val = (ulong)value;
                 if (val <= FixNumMax)
-                    return SerializeInt((int)value);
+                    return SerializeInt((int)value, flags);
 
-                return SerializeBigInt(val);
+                return SerializeBigInt(val, flags);
             }
             case TypeCode.Int64:
             case TypeCode.Int32:
             {
                 long val = (long)value;
                 if (val <= FixNumMax && val >= FixNumMin)
-                    return SerializeInt((int)value);
+                    return SerializeInt((int)value, flags);
 
-                return SerializeBigInt(val);
+                return SerializeBigInt(val, flags);
             }
             case TypeCode.Boolean:
                 return (bool)value ? _context.Create(RubyCodes.True) : _context.Create(RubyCodes.False);
             case TypeCode.Decimal:
-                return SerializeFloat(Convert.ToDouble(value));
+                return SerializeFloat(Convert.ToDouble(value), flags);
             case TypeCode.Single:
-                return SerializeFloat(Convert.ToDouble(value));
+                return SerializeFloat(Convert.ToDouble(value), flags);
             case TypeCode.Double:
-                return SerializeFloat((double)value);
+                return SerializeFloat((double)value, flags);
             case TypeCode.String:
-                return SerializeString((string)value, Encoding.UTF8);
+            {
+                var encoding = flags.HasFlag(CandidateFlags.Character)
+                    ? SerializationHelper.ASCII8BitEncoding
+                    : Encoding.UTF8;
+                return SerializeString((string)value, encoding, flags);
+            }
         }
 
         if (valueType == typeof(SpecialString))
-            return SerializeString((SpecialString)value);
+            return SerializeString((SpecialString)value, flags);
         
         if (valueType == typeof(BigInteger))
-            return SerializeBigInt((BigInteger)value);
+            return SerializeBigInt((BigInteger)value, flags);
 
         var customConverter = SerializationHelper.GetBackConverter(value);
         if (customConverter != null)
-            return SerializeValue(customConverter.ConvertBack(value));
+            return SerializeValue(customConverter.ConvertBack(value), flags);
         
         if (typeof(IList).IsAssignableFrom(valueType))
-            return SerializeArray((IList)value);
+            return SerializeArray((IList)value, flags);
 
         if (typeof(IDictionary).IsAssignableFrom(valueType))
-            return SerializeDictionary((IDictionary)value);
+            return SerializeDictionary((IDictionary)value, flags);
 
         var serializerType = SerializationHelper.GetUserSerializerByType(valueType, _settings.ContextTag);
         if (serializerType != null)
-            return SerializeUserObject(serializerType, value);
+            return SerializeUserObject(serializerType, value, flags);
 
         var rubyObjectTypeName = SerializationHelper.GetRubyObjectTypeNameForType(valueType, _settings.ContextTag);
         if (!string.IsNullOrEmpty(rubyObjectTypeName))
-            return SerializeObject(rubyObjectTypeName, value);
+            return SerializeObject(rubyObjectTypeName, value, flags);
 
         throw new Exception($"Can't serialize type {valueType}");
     }
 
-    private AbstractEntity SerializeUserObject(Type serializerType, object value)
+    private AbstractEntity SerializeUserObject(Type serializerType, object value, CandidateFlags flags = CandidateFlags.None)
     {
         if (_serializedObjects.ContainsKey(value))
             return _serializedObjects[value];
@@ -142,7 +148,7 @@ public class RubySerializer
         return ru;
     }
 
-    private AbstractEntity SerializeObject(string rubyObjectTypeName, object value)
+    private AbstractEntity SerializeObject(string rubyObjectTypeName, object value, CandidateFlags flags)
     {
         if (_serializedObjects.ContainsKey(value))
             return _serializedObjects[value];
@@ -157,22 +163,22 @@ public class RubySerializer
         var info = SerializationHelper.GetTypeCandidateInfo(objectType);
         foreach (var (fieldName, fieldCandidate) in info.FieldCandidates)
         {
-            if (fieldCandidate.IsTrash && !_settings.WriteTrashProperties)
+            if ((fieldCandidate.Flags & CandidateFlags.InOut) != 0 && !fieldCandidate.Flags.HasFlag(CandidateFlags.Out)  && _settings.ConsiderInOutFields)
                 continue;
 
             object? fieldValue = null;
-            if (fieldCandidate.Type == SerializationHelper.CandidateType.Field)
+            if (fieldCandidate.Type == CandidateType.Field)
                 fieldValue = objectType.GetField(fieldCandidate.Name)!.GetValue(value);
-            else if (fieldCandidate.Type == SerializationHelper.CandidateType.Property)
+            else if (fieldCandidate.Type == CandidateType.Property)
                 fieldValue = objectType.GetProperty(fieldCandidate.Name)!.GetValue(value);
 
-            ro.Attributes.Add(new(SerializeSymbol(fieldName), SerializeValue(fieldValue)));
+            ro.Attributes.Add(new(SerializeSymbol(fieldName), SerializeValue(fieldValue, fieldCandidate.Flags)));
         }
 
         if (info.ExtensionDataCandidate != null)
         {
             Dictionary<string, object?>? map;
-            if (info.ExtensionDataCandidate.Type == SerializationHelper.CandidateType.Field)
+            if (info.ExtensionDataCandidate.Type == CandidateType.Field)
                 map = objectType.GetField(info.ExtensionDataCandidate.Name)!.GetValue(value) as Dictionary<string, object?>;
             else
                 map = objectType.GetProperty(info.ExtensionDataCandidate.Name)!.GetValue(value) as Dictionary<string, object?>;
@@ -190,7 +196,7 @@ public class RubySerializer
             ro.Attributes.Add(new(SerializeSymbol(field), SerializeValue(value)));
     }
 
-    private AbstractEntity SerializeInt(int value)
+    private AbstractEntity SerializeInt(int value, CandidateFlags candidateFlags = CandidateFlags.None)
     {
         var rf = (RubyFixNum)_context.Create(RubyCodes.FixNum);
         rf.Value = value;
@@ -198,7 +204,7 @@ public class RubySerializer
         return rf;
     }
 
-    private AbstractEntity SerializeFloat(double value)
+    private AbstractEntity SerializeFloat(double value, CandidateFlags flags = CandidateFlags.None)
     {
         if (_serializedFloats.ContainsKey(value))
             return _serializedFloats[value];
@@ -211,7 +217,7 @@ public class RubySerializer
         return rf;
     }
 
-    private AbstractEntity SerializeBigInt(BigInteger value)
+    private AbstractEntity SerializeBigInt(BigInteger value, CandidateFlags flags = CandidateFlags.None)
     {
         if (_serializedBigInts.ContainsKey(value))
             return _serializedBigInts[value];
@@ -224,7 +230,7 @@ public class RubySerializer
         return rbn;
     }
 
-    private AbstractEntity SerializeDictionary(IDictionary value)
+    private AbstractEntity SerializeDictionary(IDictionary value, CandidateFlags flags = CandidateFlags.None)
     {
         if (_serializedObjects.ContainsKey(value))
             return _serializedObjects[value];
@@ -234,15 +240,15 @@ public class RubySerializer
         _serializedObjects[value] = rh;
 
         foreach (DictionaryEntry v in value)
-            rh.Pairs.Add(new(SerializeValue(v.Key), SerializeValue(v.Value)));
+            rh.Pairs.Add(new(SerializeValue(v.Key, flags), SerializeValue(v.Value, flags)));
 
         if (value is IDefDictionary dd)
-            rh.Default = SerializeValue(dd.DefaultValue);
+            rh.Default = SerializeValue(dd.DefaultValue, flags);
 
         return rh;
     }
 
-    private AbstractEntity SerializeArray(IList value)
+    private AbstractEntity SerializeArray(IList value, CandidateFlags flags = CandidateFlags.None)
     {
         if (_serializedObjects.ContainsKey(value))
             return _serializedObjects[value];
@@ -252,22 +258,22 @@ public class RubySerializer
         _serializedObjects[value] = ra;
 
         foreach (var v in value)
-            ra.Elements.Add(SerializeValue(v));
+            ra.Elements.Add(SerializeValue(v, flags));
 
         return ra;
     }
     
-    private AbstractEntity SerializeString(string value, Encoding encoding)
+    private AbstractEntity SerializeString(string value, Encoding encoding, CandidateFlags flags = CandidateFlags.None)
     {
         return SerializeString(encoding.GetBytes(value), encoding);
     }
 
-    private AbstractEntity SerializeString(SpecialString value)
+    private AbstractEntity SerializeString(SpecialString value, CandidateFlags flags = CandidateFlags.None)
     {
         return SerializeString(value.Bytes, value.Encoding);
     }
 
-    private AbstractEntity SerializeString(byte[] value, Encoding encoding)
+    private AbstractEntity SerializeString(byte[] value, Encoding encoding, CandidateFlags flags = CandidateFlags.None)
     {
         var asHex = Convert.ToHexString(value);
 

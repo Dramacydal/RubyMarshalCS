@@ -1,5 +1,4 @@
 ﻿using RubyMarshalCS.Enums;
-using RubyMarshalCS.Settings;
 using RubyMarshalCS.Entities;
 
 namespace RubyMarshalCS;
@@ -31,15 +30,9 @@ public class SerializationContext
         [RubyCodes.Data] = typeof(RubyData),
     };
 
-    private readonly SerializationSettings _settings = new();
     private readonly List<AbstractEntity> _objectInstances = new();
     private readonly List<AbstractEntity> _symbolInstances = new();
     public readonly List<AbstractEntity> _allObjects = new();
-
-    public SerializationContext(SerializationSettings? settings = null)
-    {
-        _settings = settings ?? _settings;
-    }
 
     public void RememberObject(AbstractEntity entity)
     {

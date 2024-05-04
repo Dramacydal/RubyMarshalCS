@@ -4,6 +4,7 @@ using System.Text;
 using RubyMarshalCS.Entities;
 using RubyMarshalCS.Enums;
 using RubyMarshalCS.Serialization;
+using RubyMarshalCS.Serialization.Enums;
 using RubyMarshalCS.Settings;
 using RubyMarshalCS.SpecialTypes;
 
@@ -11,16 +12,16 @@ namespace RubyMarshalCS;
 
 public class RubyDeserializer
 {
-    private readonly SerializationSettings _settings;
+    private readonly DeserializationSettings _settings;
 
     private readonly Dictionary<object, object> _objectConversionMap = new();
 
-    private RubyDeserializer(SerializationSettings? settings = null)
+    private RubyDeserializer(DeserializationSettings? settings = null)
     {
         _settings = settings ?? new();
     }
 
-    public static T? Deserialize<T>(AbstractEntity data, SerializationSettings? settings = null)
+    public static T? Deserialize<T>(AbstractEntity data, DeserializationSettings? settings = null)
     {
         var instance = new RubyDeserializer(settings);
 
@@ -36,25 +37,33 @@ public class RubyDeserializer
             var fieldName = key.ResolveIfLink().ToString()!;
 
             var candidate = SerializationHelper.GetFieldCandidate(type, fieldName);
-            if (candidate == null /* || data is RubyUserDefined*/)
+            if (candidate == null)
+            {
+                if (!_settings.AllowUnmappedFields)
+                    throw new Exception($"Object {type} has unmapped property \"{fieldName}\"");
+                        
                 StoreToExtensionData(type, obj, fieldName, DeserializeEntity(value));
+            }
             else
             {
+                if ((candidate.Flags & CandidateFlags.InOut) != 0 && !candidate.Flags.HasFlag(CandidateFlags.In)  && _settings.ConsiderInOutFields)
+                    continue;
+                
                 ValueWrapper w;
 
                 switch (candidate.Type)
                 {
-                    case SerializationHelper.CandidateType.Property:
+                    case CandidateType.Property:
                         w = new(obj, type.GetProperty(candidate.Name)!);
                         break;
-                    case SerializationHelper.CandidateType.Field:
+                    case CandidateType.Field:
                         w = new(obj, type.GetField(candidate.Name)!);
                         break;
                     default:
                         continue;
                 }
 
-                w.SetValue(DeserializeEntity(value), candidate.IsDynamic);
+                w.SetValue(DeserializeEntity(value), candidate.Flags.HasFlag(CandidateFlags.Dynamic));
             }
         }
 
@@ -70,10 +79,10 @@ public class RubyDeserializer
 
             switch (extensionCandidate.Type)
             {
-                case SerializationHelper.CandidateType.Property:
+                case CandidateType.Property:
                     extensionData = type.GetProperty(extensionCandidate.Name)!.GetValue(obj);
                     break;
-                case SerializationHelper.CandidateType.Field:
+                case CandidateType.Field:
                     extensionData = type.GetField(extensionCandidate.Name)!.GetValue(obj);
                     break;
             }
@@ -81,7 +90,7 @@ public class RubyDeserializer
             if (extensionData != null)
                 ((Dictionary<string, object?>)extensionData)[fieldName] = value;
         }
-        else if (_settings.EnsureExtensionDataPresent)
+        else if (_settings.EnsureExtensionFieldPresent)
             throw new Exception($"Ruby object type {type} does not have extension data field");
     }
 

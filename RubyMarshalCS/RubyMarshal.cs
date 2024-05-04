@@ -5,46 +5,46 @@ namespace RubyMarshalCS;
 
 public static class RubyMarshal
 {
-    public static T? Load<T>(byte[] bytes, SerializationSettings? settings = null)
+    public static T? Load<T>(byte[] bytes, DeserializationSettings? settings = null)
     {
         return RubyDeserializer.Deserialize<T>(Load(bytes, settings), settings);
     }
 
-    public static T? Load<T>(string path, SerializationSettings? settings = null)
+    public static T? Load<T>(string path, DeserializationSettings? settings = null)
     {
         return RubyDeserializer.Deserialize<T>(Load(path, settings), settings);
     }
 
-    public static T? Load<T>(Stream stream, SerializationSettings? settings = null)
+    public static T? Load<T>(Stream stream, DeserializationSettings? settings = null)
     {
         return RubyDeserializer.Deserialize<T>(Load(stream, settings), settings);
     }
 
-    public static T? Load<T>(BinaryReader reader, SerializationSettings? settings = null)
+    public static T? Load<T>(BinaryReader reader, DeserializationSettings? settings = null)
     {
         return RubyDeserializer.Deserialize<T>(Load(reader, settings), settings);
     }
 
-    public static AbstractEntity Load(byte[] bytes, SerializationSettings? settings = null)
+    public static AbstractEntity Load(byte[] bytes, DeserializationSettings? settings = null)
     {
         using var stream = new MemoryStream(bytes);
 
         return Load(stream, settings);
     }
 
-    public static AbstractEntity Load(string path, SerializationSettings? settings = null)
+    public static AbstractEntity Load(string path, DeserializationSettings? settings = null)
     {
         return Load(File.OpenRead(path), settings);
     }
 
-    public static AbstractEntity Load(Stream stream, SerializationSettings? settings = null)
+    public static AbstractEntity Load(Stream stream, DeserializationSettings? settings = null)
     {
         using var reader = new BinaryReader(stream);
 
         return Load(reader, settings);
     }
 
-    public static AbstractEntity Load(BinaryReader reader, SerializationSettings? settings = null)
+    public static AbstractEntity Load(BinaryReader reader, DeserializationSettings? settings = null)
     {
         var rr = new RubyReader(reader, settings);
 

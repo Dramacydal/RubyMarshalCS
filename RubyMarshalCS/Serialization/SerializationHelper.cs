@@ -5,8 +5,8 @@ using System.Text;
 using RubyMarshalCS.Conversion.Attributes;
 using RubyMarshalCS.Conversion.Interfaces;
 using RubyMarshalCS.Serialization.Attributes;
+using RubyMarshalCS.Serialization.Enums;
 using RubyMarshalCS.Serialization.Interfaces;
-using RubyMarshalCS.SpecialTypes;
 using RubyMarshalCS.SpecialTypes.Interfaces;
 
 namespace RubyMarshalCS.Serialization;
@@ -144,48 +144,6 @@ public class SerializationHelper
         _customConverters.Add((ICustomConverter)Activator.CreateInstance(type)!);
     }
 
-    public enum CandidateType
-    {
-        Field,
-        Property,
-    }
-
-    public class Candidate
-    {
-        public Candidate(CandidateType type, string name)
-        {
-            Type = type;
-            Name = name;
-        }
-
-        public Candidate(CandidateType type, string name, bool isTrash, bool isDynamic)
-        {
-            Type = type;
-            Name = name;
-            IsTrash = isTrash;
-            IsDynamic = isDynamic;
-        }
-
-        public CandidateType Type { get; }
-        public string Name { get; }
-        public bool IsDynamic { get; }
-        public bool IsTrash { get; }
-    }
-
-    public class TypeCandidateInfo
-    {
-        public TypeCandidateInfo(Type type)
-        {
-            Type = type;
-        }
-
-        public Type Type { get; }
-
-        public readonly Dictionary<string, Candidate> FieldCandidates = new();
-
-        public Candidate? ExtensionDataCandidate { get; set; }
-    }
-
     private static Dictionary<Type, TypeCandidateInfo> _infos = new();
 
     private static Dictionary<Type, Type?> _elementTypeForListMap = new();
@@ -233,18 +191,6 @@ public class SerializationHelper
         return info?.ExtensionDataCandidate;
     }
 
-    public static bool IsDynamicFieldOrProperty(Type type, string name)
-    {
-        var info = GetTypeCandidateInfo(type);
-
-        if (!info.FieldCandidates.ContainsKey(name))
-            return false;
-
-        var c = info.FieldCandidates[name];
-
-        return c.IsDynamic;
-    }
-
     private static void AttributeChecker(CandidateType candidateType, string name, MemberInfo type,
         TypeCandidateInfo info)
     {
@@ -257,8 +203,16 @@ public class SerializationHelper
                     throw new Exception(
                         $"Type [{type.DeclaringType.Name}] already have field with attribute [{ra.Name}]");
 
-                info.FieldCandidates[ra.Name] = new(candidateType, name, ra.IsTrash,
-                    attributes.Any(_ => _ is RubyDynamicPropertyAttribute));
+                CandidateFlags flags = CandidateFlags.None;
+                foreach (var attr2 in attributes)
+                {
+                    if (attr2 is RubyDynamicPropertyAttribute)
+                        flags |= CandidateFlags.Dynamic;
+                    if (attr2 is RubyCharAttribute)
+                        flags |= CandidateFlags.Character;
+                }
+
+                info.FieldCandidates[ra.Name] = new(candidateType, name, flags);
             }
 
             if (attr is RubyExtensionDataAttribute re)
@@ -409,11 +363,6 @@ public class SerializationHelper
         if (converter != null)
             return converter.Convert(o, type);
 
-        if (o.GetType() != typeof(SpecialString))
-        {
-            // throw new Exception("DEBUG");
-        }
-
         var dataParam = Expression.Parameter(typeof(object), "data");
         var body = Expression.Block(Expression.Convert(Expression.Convert(dataParam, o.GetType()), type));
 
@@ -468,7 +417,7 @@ public class SerializationHelper
             valueType = typeof(object);
         }
         else
-            throw new Exception($"Type {newType} does not implement IList");
+            throw new Exception($"Type {newType} does not implement {nameof(IList)}");
 
         foreach (var e in list)
         {
@@ -496,7 +445,7 @@ public class SerializationHelper
             valueType = new(typeof(object), typeof(object));
         }
         else
-            throw new Exception($"Type {newType} does not implement IList");
+            throw new Exception($"Type {newType} does not implement {nameof(IDictionary)}");
 
         if (typeof(IDefDictionary).IsAssignableFrom(newType) ^ dict is IDefDictionary)
         {
