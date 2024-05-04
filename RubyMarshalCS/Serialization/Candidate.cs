@@ -20,4 +20,6 @@ public class Candidate
     public CandidateType Type { get; }
     public string Name { get; }
     public CandidateFlags Flags { get; }
+
+    public override string ToString() => Name;
 }

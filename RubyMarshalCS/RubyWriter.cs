@@ -101,8 +101,8 @@ public class RubyWriter
     {
         w_class(RubyCodes.Object, entity.ClassName);
 
-        _writer.WriteFixNum(entity.Attributes.Count);
-        foreach (var attr in entity.Attributes)
+        _writer.WriteFixNum(entity.Fields.Count);
+        foreach (var attr in entity.Fields)
         {
             WriteEntity(attr.Key);
             WriteEntity(attr.Value);
@@ -124,7 +124,7 @@ public class RubyWriter
     private void WriteUserDefined(RubyUserDefined entity)
     {
         w_class(RubyCodes.UserDefined, entity.ClassName);
-        _writer.Write(entity.Bytes);
+        _writer.WriteByteSequence(entity.Bytes);
     }
     
     private void WriteUserMarshal(RubyUserMarshal entity)
@@ -136,19 +136,19 @@ public class RubyWriter
     private void WriteModule(RubyModule entity)
     {
         _writer.Write((byte)RubyCodes.Module);
-        _writer.Write(entity.Bytes);
+        _writer.WriteByteSequence(entity.Bytes);
     }
 
     private void WriteClass(RubyClass entity)
     {
         _writer.Write((byte)RubyCodes.Class);
-        _writer.Write(entity.Bytes);
+        _writer.WriteByteSequence(entity.Bytes);
     }
 
     private void WriteModuleOld(RubyModuleOld entity)
     {
         _writer.Write((byte)RubyCodes.ModuleOld);
-        _writer.Write(entity.Bytes);
+        _writer.WriteByteSequence(entity.Bytes);
     }
 
     private void WriteArray(RubyArray entity)
@@ -163,7 +163,7 @@ public class RubyWriter
     private void WriteRegExp(RubyRegExp entity)
     {
         _writer.Write((byte)RubyCodes.RegExp);
-        _writer.Write(entity.Bytes);
+        _writer.WriteByteSequence(entity.Bytes);
         _writer.Write((byte)entity.Options);
     }
 
@@ -185,7 +185,7 @@ public class RubyWriter
     private void WriteString(RubyString entity)
     {
         _writer.Write((byte)RubyCodes.String);
-        _writer.Write(entity.Bytes);
+        _writer.WriteByteSequence(entity.Bytes);
     }
 
     private void w_class(RubyCodes code, AbstractEntity className)
@@ -205,7 +205,7 @@ public class RubyWriter
             _writer.Write((byte)RubyCodes.InstanceVar);
         
         _writer.Write((byte)RubyCodes.Symbol);
-        _writer.Write(entity.Value);
+        _writer.WriteByteSequence(entity.Value);
 
         if (entity.InstanceVariables.Count > 0)
         {

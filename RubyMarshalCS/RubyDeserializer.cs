@@ -32,7 +32,7 @@ public class RubyDeserializer
     {
         var obj = Activator.CreateInstance(type)!;
 
-        foreach (var (key, value) in data.Attributes)
+        foreach (var (key, value) in data.Fields)
         {
             var fieldName = key.ResolveIfLink().ToString()!;
 

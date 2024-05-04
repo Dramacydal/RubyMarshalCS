@@ -397,7 +397,7 @@ public class RubyReader
 
         _serializationContext.RememberObject(entity);
 
-        entity.Attributes.AddRange(r_ivar(context));
+        entity.Fields.AddRange(r_ivar(context));
 
         return entity;
     }

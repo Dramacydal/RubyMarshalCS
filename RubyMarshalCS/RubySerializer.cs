@@ -63,7 +63,7 @@ public class RubySerializer
             case TypeCode.UInt32:
             case TypeCode.UInt64:
             {
-                var val = (ulong)value;
+                var val = Convert.ToUInt64(value);
                 if (val <= FixNumMax)
                     return SerializeInt((int)value, flags);
 
@@ -72,7 +72,7 @@ public class RubySerializer
             case TypeCode.Int64:
             case TypeCode.Int32:
             {
-                long val = (long)value;
+                long val = Convert.ToInt64(value);
                 if (val <= FixNumMax && val >= FixNumMin)
                     return SerializeInt((int)value, flags);
 
@@ -172,7 +172,7 @@ public class RubySerializer
             else if (fieldCandidate.Type == CandidateType.Property)
                 fieldValue = objectType.GetProperty(fieldCandidate.Name)!.GetValue(value);
 
-            ro.Attributes.Add(new(SerializeSymbol(fieldName), SerializeValue(fieldValue, fieldCandidate.Flags)));
+            ro.Fields.Add(new(SerializeSymbol(fieldName), SerializeValue(fieldValue, fieldCandidate.Flags)));
         }
 
         if (info.ExtensionDataCandidate != null)
@@ -193,7 +193,7 @@ public class RubySerializer
     private void WriteUnknownObjectFields(Dictionary<string, object?> map, RubyObject ro)
     {
         foreach (var (field, value) in map)
-            ro.Attributes.Add(new(SerializeSymbol(field), SerializeValue(value)));
+            ro.Fields.Add(new(SerializeSymbol(field), SerializeValue(value)));
     }
 
     private AbstractEntity SerializeInt(int value, CandidateFlags candidateFlags = CandidateFlags.None)

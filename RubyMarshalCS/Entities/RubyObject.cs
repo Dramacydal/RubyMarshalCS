@@ -8,7 +8,7 @@ public class RubyObject : AbstractEntity
     
     public AbstractEntity ClassName { get; set; }
     
-    public readonly List<KeyValuePair<AbstractEntity, AbstractEntity>> Attributes = new();
+    public readonly List<KeyValuePair<AbstractEntity, AbstractEntity>> Fields = new();
 
     public string GetRealClassName()
     {

@@ -201,7 +201,7 @@ public class SerializationHelper
             {
                 if (info.FieldCandidates.ContainsKey(ra.Name))
                     throw new Exception(
-                        $"Type [{type.DeclaringType.Name}] already have field with attribute [{ra.Name}]");
+                        $"Type [{type.DeclaringType.Name}] has duplicate property [{ra.Name}]");
 
                 CandidateFlags flags = CandidateFlags.None;
                 foreach (var attr2 in attributes)
