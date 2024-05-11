@@ -203,16 +203,7 @@ public class SerializationHelper
                     throw new Exception(
                         $"Type [{type.DeclaringType.Name}] has duplicate property [{ra.Name}]");
 
-                CandidateFlags flags = CandidateFlags.None;
-                foreach (var attr2 in attributes)
-                {
-                    if (attr2 is RubyDynamicPropertyAttribute)
-                        flags |= CandidateFlags.Dynamic;
-                    if (attr2 is RubyCharAttribute)
-                        flags |= CandidateFlags.Character;
-                }
-
-                info.FieldCandidates[ra.Name] = new(candidateType, name, flags);
+                info.FieldCandidates[ra.Name] = new(candidateType, name, ra.Flags);
             }
 
             if (attr is RubyExtensionDataAttribute re)
@@ -247,7 +238,7 @@ public class SerializationHelper
             AttributeChecker(CandidateType.Field, field.Name, field, info);
 
         foreach (var property in type.GetProperties())
-            AttributeChecker(CandidateType.Field, property.Name, property, info);
+            AttributeChecker(CandidateType.Property, property.Name, property, info);
 
         _infos[type] = info;
 
@@ -359,6 +350,15 @@ public class SerializationHelper
         if (o.GetType() == type || type == typeof(object))
             return o;
 
+        if (o.GetType().IsPrimitive && type.IsPrimitive)
+            return o;
+        
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
+        {
+            if (Nullable.GetUnderlyingType(type) == o.GetType())
+                return o;
+        }
+        
         var converter = GetCustomConverter(o, type);
         if (converter != null)
             return converter.Convert(o, type);
