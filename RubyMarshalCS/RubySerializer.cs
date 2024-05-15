@@ -95,8 +95,8 @@ public class RubySerializer
             }
         }
 
-        if (valueType == typeof(SpecialString))
-            return SerializeString((SpecialString)value, flags);
+        if (valueType == typeof(BinaryString))
+            return SerializeString((BinaryString)value, flags);
         
         if (valueType == typeof(BigInteger))
             return SerializeBigInt((BigInteger)value, flags);
@@ -268,7 +268,7 @@ public class RubySerializer
         return SerializeString(encoding.GetBytes(value), encoding);
     }
 
-    private AbstractEntity SerializeString(SpecialString value, CandidateFlags flags = CandidateFlags.None)
+    private AbstractEntity SerializeString(BinaryString value, CandidateFlags flags = CandidateFlags.None)
     {
         return SerializeString(value.Bytes, value.Encoding);
     }

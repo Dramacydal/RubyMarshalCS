@@ -46,4 +46,9 @@ public abstract class AbstractDynamicProperty : IDynamicProperty
     {
         return _isNull ? null : _valueHolder[_type!];
     }
+
+    public Type? GetValueType()
+    {
+        return _type;
+    }
 }

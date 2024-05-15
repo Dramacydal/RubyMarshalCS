@@ -14,7 +14,7 @@ namespace RubyMarshalCS.Serialization;
 public class SerializationHelper
 {
     public static bool AutoRegister { get; set; } = true;
-    
+
     public static readonly Encoding ASCII8BitEncoding;
 
     static SerializationHelper()
@@ -42,7 +42,7 @@ public class SerializationHelper
     {
         if (!AutoRegister)
             return;
-        
+
         foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
         foreach (var t in a.GetTypes())
         foreach (var attr in t.GetCustomAttributes())
@@ -103,7 +103,7 @@ public class SerializationHelper
                 GetInstance().RegisterUserObjectSerializer(serializer, rus.Type, rus.ContextTag);
             }
         }
-        
+
         throw new Exception($"Type {serializer} does not have {nameof(RubyUserSerializerAttribute)} assigned");
     }
 
@@ -347,18 +347,50 @@ public class SerializationHelper
 
     private static object ManualCast(Type type, object o)
     {
-        if (o.GetType() == type || type == typeof(object))
+        var objectType = o.GetType();
+        
+        if (objectType == type || type == typeof(object))
             return o;
 
-        if (o.GetType().IsPrimitive && type.IsPrimitive)
+        if (objectType.IsPrimitive && type.IsPrimitive)
             return o;
         
+        if (objectType == typeof(string))
+        {
+            if (type == typeof(bool))
+                return Convert.ToBoolean(o);
+            if (type == typeof(byte))
+                return Convert.ToByte(o);
+            if (type == typeof(sbyte))
+                return Convert.ToSByte(o);
+            if (type == typeof(ushort))
+                return Convert.ToUInt16(o);
+            if (type == typeof(short))
+                return Convert.ToInt16(o);
+            if (type == typeof(uint))
+                return Convert.ToUInt32(o);
+            if (type == typeof(int))
+                return Convert.ToInt32(o);
+            if (type == typeof(ulong))
+                return Convert.ToUInt64(o);
+            if (type == typeof(long))
+                return Convert.ToInt64(o);
+            if (type == typeof(float))
+                return Convert.ToSingle(o);
+            if (type == typeof(double))
+                return Convert.ToDouble(o);
+            if (type == typeof(decimal))
+                return Convert.ToDecimal(o);
+            if (type == typeof(DateTime))
+                return Convert.ToDateTime(o);
+        }
+
         if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
         {
             if (Nullable.GetUnderlyingType(type) == o.GetType())
                 return o;
         }
-        
+
         var converter = GetCustomConverter(o, type);
         if (converter != null)
             return converter.Convert(o, type);
@@ -422,7 +454,7 @@ public class SerializationHelper
         foreach (var e in list)
         {
             if (e != null && valueType != typeof(object) && valueType != e.GetType())
-                newList.Add(ManualCast(valueType, e));
+                newList.Add(AssignmentConversion(valueType, e, allowDynamic));
             else
                 newList.Add(e);
         }
@@ -485,11 +517,16 @@ public class SerializationHelper
 
     public static string? GetRubyObjectTypeNameForType(Type type, string tag)
     {
-        return GetInstance()._rubyObjectTypeNamesToTypeMap.FirstOrDefault(_ => _.Key == tag).Value?.FirstOrDefault(_ => _.Value == type).Key;
+        return GetInstance()._rubyObjectTypeNamesToTypeMap.FirstOrDefault(_ => _.Key == tag).Value
+            ?.FirstOrDefault(_ => _.Value == type).Key;
     }
 
     public static Type? GetUserSerializerByType(Type type, string tag)
     {
-        return GetInstance()._userSerializersByType.FirstOrDefault(_ => _.Key == tag).Value?.FirstOrDefault(_ => _.Key == type).Value;
+        return GetInstance()._userSerializersByType.FirstOrDefault(_ => _.Key == tag).Value
+            ?.FirstOrDefault(_ => _.Key == type).Value;
     }
+
+    public static Dictionary<string, Type> GetRegisteredRubyObjects(string tag) => GetInstance()
+        ._rubyObjectTypeNamesToTypeMap.FirstOrDefault(_ => _.Key == tag).Value;
 }

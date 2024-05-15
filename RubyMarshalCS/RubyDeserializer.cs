@@ -116,7 +116,7 @@ public class RubyDeserializer
                 if (_objectConversionMap.ContainsKey(e))
                     return _objectConversionMap[e];
 
-                var value = new SpecialString(((RubyString)e).Bytes, LookupEncoding(e));
+                var value = new BinaryString(((RubyString)e).Bytes, LookupEncoding(e));
 
                 _objectConversionMap[e] = value;
 
