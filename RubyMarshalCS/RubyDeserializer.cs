@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Diagnostics;
+using System.Reflection;
 using System.Text;
 using RubyMarshalCS.Entities;
 using RubyMarshalCS.Enums;
@@ -32,32 +33,29 @@ public class RubyDeserializer
     {
         var obj = Activator.CreateInstance(type)!;
 
+        var info = SerializationHelper.GetTypeCandidateInfo(type);
+
+        info.OnPreDeserializeMethod?.Invoke(obj, new object[] { data });
+
         foreach (var (key, value) in data.Fields)
         {
             var fieldName = key.ResolveIfLink().ToString()!;
 
-            var candidate = SerializationHelper.GetFieldCandidate(type, fieldName);
-            if (candidate == null)
+            if (info.FieldCandidates.TryGetValue(fieldName, out var candidate))
             {
-                if (!_settings.AllowUnmappedFields)
-                    throw new Exception($"Object {type} has unmapped property \"{fieldName}\"");
-                        
-                StoreToExtensionData(type, obj, fieldName, DeserializeEntity(value));
-            }
-            else
-            {
-                if ((candidate.Flags & CandidateFlags.InOut) != 0 && !candidate.Flags.HasFlag(CandidateFlags.In)  && _settings.ConsiderInOutFields)
+                if ((candidate.Flags & CandidateFlags.InOut) != 0 && !candidate.Flags.HasFlag(CandidateFlags.In) &&
+                    _settings.ConsiderInOutFields)
                     continue;
-                
+
                 ValueWrapper w;
 
                 switch (candidate.Type)
                 {
                     case CandidateType.Property:
-                        w = new(obj, type.GetProperty(candidate.Name)!);
+                        w = new(obj, (candidate.Member as PropertyInfo)!);
                         break;
                     case CandidateType.Field:
-                        w = new(obj, type.GetField(candidate.Name)!);
+                        w = new(obj, (candidate.Member as FieldInfo)!);
                         break;
                     default:
                         continue;
@@ -65,25 +63,33 @@ public class RubyDeserializer
 
                 w.SetValue(DeserializeEntity(value), candidate.Flags.HasFlag(CandidateFlags.Dynamic));
             }
+            else
+            {
+                if (!_settings.AllowUnmappedFields)
+                    throw new Exception($"Object {type} has unmapped property \"{fieldName}\"");
+
+                StoreToExtensionData(info, obj, fieldName, DeserializeEntity(value));
+            }
         }
+
+        info.OnDeserializeMethod?.Invoke(obj, new object[] { data });
 
         return obj;
     }
 
-    private void StoreToExtensionData(Type type, object obj, string fieldName, object? value)
+    private void StoreToExtensionData(TypeCandidateInfo extensionCandidate, object obj, string fieldName, object? value)
     {
-        var extensionCandidate = SerializationHelper.GetExtensionDataCandidate(type);
-        if (extensionCandidate != null)
+        if (extensionCandidate.ExtensionDataCandidate != null)
         {
             object? extensionData = null;
 
-            switch (extensionCandidate.Type)
+            switch (extensionCandidate.ExtensionDataCandidate.Type)
             {
                 case CandidateType.Property:
-                    extensionData = type.GetProperty(extensionCandidate.Name)!.GetValue(obj);
+                    extensionData = (extensionCandidate.ExtensionDataCandidate.Member as PropertyInfo)!.GetValue(obj);
                     break;
                 case CandidateType.Field:
-                    extensionData = type.GetField(extensionCandidate.Name)!.GetValue(obj);
+                    extensionData = (extensionCandidate.ExtensionDataCandidate.Member as FieldInfo)!.GetValue(obj);
                     break;
             }
 
@@ -91,7 +97,7 @@ public class RubyDeserializer
                 ((Dictionary<string, object?>)extensionData)[fieldName] = value;
         }
         else if (_settings.EnsureExtensionFieldPresent)
-            throw new Exception($"Ruby object type {type} does not have extension data field");
+            throw new Exception($"Ruby object type {extensionCandidate.Type} does not have extension data field");
     }
 
     private object? DeserializeEntity(AbstractEntity e)

@@ -1,4 +1,6 @@
-﻿namespace RubyMarshalCS.Serialization;
+﻿using System.Reflection;
+
+namespace RubyMarshalCS.Serialization;
 
 public class TypeCandidateInfo
 {
@@ -12,4 +14,12 @@ public class TypeCandidateInfo
     public readonly Dictionary<string, Candidate> FieldCandidates = new();
 
     public Candidate? ExtensionDataCandidate { get; set; }
+    
+    public MethodInfo? OnPreSerializeMethod { get; set; }
+    
+    public MethodInfo? OnSerializeMethod { get; set; }
+    
+    public MethodInfo? OnPreDeserializeMethod { get; set; }
+    
+    public MethodInfo? OnDeserializeMethod { get; set; }
 }

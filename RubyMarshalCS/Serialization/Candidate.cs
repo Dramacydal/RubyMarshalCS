@@ -1,25 +1,26 @@
-﻿using RubyMarshalCS.Serialization.Enums;
+﻿using System.Reflection;
+using RubyMarshalCS.Serialization.Enums;
 
 namespace RubyMarshalCS.Serialization;
 
 public class Candidate
 {
-    public Candidate(CandidateType type, string name)
+    public Candidate(CandidateType type, MemberInfo member)
     {
         Type = type;
-        Name = name;
+        Member = member;
     }
 
-    public Candidate(CandidateType type, string name, CandidateFlags flags)
+    public Candidate(CandidateType type, MemberInfo member, CandidateFlags flags)
     {
         Type = type;
-        Name = name;
+        Member = member;
         Flags = flags;
     }
 
     public CandidateType Type { get; }
-    public string Name { get; }
+    public MemberInfo Member { get; }
     public CandidateFlags Flags { get; }
 
-    public override string ToString() => Name;
+    public override string ToString() => Member.Name;
 }

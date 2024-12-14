@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Numerics;
+using System.Reflection;
 using System.Text;
 using RubyMarshalCS.Entities;
 using RubyMarshalCS.Enums;
@@ -161,6 +162,9 @@ public class RubySerializer
 
         var objectType = value.GetType();
         var info = SerializationHelper.GetTypeCandidateInfo(objectType);
+        
+        info.OnPreSerializeMethod?.Invoke(value, new object[] { ro });
+        
         foreach (var (fieldName, fieldCandidate) in info.FieldCandidates)
         {
             if ((fieldCandidate.Flags & CandidateFlags.InOut) != 0 && !fieldCandidate.Flags.HasFlag(CandidateFlags.Out)  && _settings.ConsiderInOutFields)
@@ -168,9 +172,9 @@ public class RubySerializer
 
             object? fieldValue = null;
             if (fieldCandidate.Type == CandidateType.Field)
-                fieldValue = objectType.GetField(fieldCandidate.Name)!.GetValue(value);
+                fieldValue = (fieldCandidate.Member as FieldInfo)!.GetValue(value);
             else if (fieldCandidate.Type == CandidateType.Property)
-                fieldValue = objectType.GetProperty(fieldCandidate.Name)!.GetValue(value);
+                fieldValue = (fieldCandidate.Member as PropertyInfo)!.GetValue(value);
 
             ro.Fields.Add(new(SerializeSymbol(fieldName), SerializeValue(fieldValue, fieldCandidate.Flags)));
         }
@@ -179,13 +183,15 @@ public class RubySerializer
         {
             Dictionary<string, object?>? map;
             if (info.ExtensionDataCandidate.Type == CandidateType.Field)
-                map = objectType.GetField(info.ExtensionDataCandidate.Name)!.GetValue(value) as Dictionary<string, object?>;
+                map = (info.ExtensionDataCandidate.Member as FieldInfo)!.GetValue(value) as Dictionary<string, object?>;
             else
-                map = objectType.GetProperty(info.ExtensionDataCandidate.Name)!.GetValue(value) as Dictionary<string, object?>;
+                map = (info.ExtensionDataCandidate.Member as PropertyInfo)!.GetValue(value) as Dictionary<string, object?>;
 
             if (map != null)
                 WriteUnknownObjectFields(map, ro);
         }
+        
+        info.OnSerializeMethod?.Invoke(value, new object[] { ro });
 
         return ro;
     }

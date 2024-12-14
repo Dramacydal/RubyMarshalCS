@@ -4,4 +4,5 @@ public enum CandidateType
 {
     Field,
     Property,
+    Method,
 }
