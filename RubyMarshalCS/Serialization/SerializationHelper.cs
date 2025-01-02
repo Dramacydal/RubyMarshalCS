@@ -185,31 +185,30 @@ public class SerializationHelper
         return null;
     }
 
-    private static void AttributeChecker(CandidateType candidateType, MemberInfo member, MemberInfo type,
-        TypeCandidateInfo info)
+    private static void AttributeChecker(CandidateType candidateType, MemberInfo member, TypeCandidateInfo info)
     {
-        var attributes = type.GetCustomAttributes(true);
+        var attributes = member.GetCustomAttributes(true);
         foreach (var attr in attributes)
         {
             if (attr is RubyPropertyAttribute ra)
             {
                 if (info.FieldCandidates.ContainsKey(ra.Name))
                     throw new Exception(
-                        $"Type [{type.DeclaringType.Name}] has duplicate property [{ra.Name}]");
+                        $"Type [{member.DeclaringType.Name}] has duplicate property [{ra.Name}]");
 
                 info.FieldCandidates[ra.Name] = new(candidateType, member, ra.Flags);
             }
 
             if (attr is RubyExtensionDataAttribute re)
             {
-                if (type is PropertyInfo pi)
+                if (member is PropertyInfo pi)
                 {
                     if (pi.PropertyType != typeof(Dictionary<string, object?>))
                         throw new Exception(
                             $"{nameof(RubyExtensionDataAttribute)} on wrong property type, must be Dictionary<string, object?>");
                 }
 
-                if (type is FieldInfo fi)
+                if (member is FieldInfo fi)
                 {
                     if (fi.FieldType != typeof(Dictionary<string, object?>))
                         throw new Exception(
@@ -241,13 +240,13 @@ public class SerializationHelper
         TypeCandidateInfo info = new(type);
 
         foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
-            AttributeChecker(CandidateType.Field, field, field, info);
+            AttributeChecker(CandidateType.Field, field, info);
 
         foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
-            AttributeChecker(CandidateType.Property, property, property, info);
+            AttributeChecker(CandidateType.Property, property, info);
 
         foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
-            AttributeChecker(CandidateType.Method, method, method, info);
+            AttributeChecker(CandidateType.Method, method, info);
 
         _infos[type] = info;
 

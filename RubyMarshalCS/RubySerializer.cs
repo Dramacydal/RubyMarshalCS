@@ -60,13 +60,13 @@ public class RubySerializer
             case TypeCode.SByte:
             case TypeCode.UInt16:
             case TypeCode.Int16:
-                return SerializeInt((int)value, flags);
+                return SerializeInt(Convert.ToInt32(value), flags);
             case TypeCode.UInt32:
             case TypeCode.UInt64:
             {
                 var val = Convert.ToUInt64(value);
                 if (val <= FixNumMax)
-                    return SerializeInt((int)value, flags);
+                    return SerializeInt(Convert.ToInt32(value), flags);
 
                 return SerializeBigInt(val, flags);
             }
@@ -75,18 +75,16 @@ public class RubySerializer
             {
                 long val = Convert.ToInt64(value);
                 if (val <= FixNumMax && val >= FixNumMin)
-                    return SerializeInt((int)value, flags);
+                    return SerializeInt(Convert.ToInt32(value), flags);
 
                 return SerializeBigInt(val, flags);
             }
             case TypeCode.Boolean:
                 return (bool)value ? _context.Create(RubyCodes.True) : _context.Create(RubyCodes.False);
             case TypeCode.Decimal:
-                return SerializeFloat(Convert.ToDouble(value), flags);
             case TypeCode.Single:
-                return SerializeFloat(Convert.ToDouble(value), flags);
             case TypeCode.Double:
-                return SerializeFloat((double)value, flags);
+                return SerializeFloat(Convert.ToDouble(value), flags);
             case TypeCode.String:
             {
                 var encoding = flags.HasFlag(CandidateFlags.Character)
