@@ -4,7 +4,7 @@ namespace RubyMarshalCS.Entities;
 
 public class RubyUserDefined : AbstractEntity
 {
-    public override RubyCodes Code { get; protected set; } = RubyCodes.UserDefined;
+    public override RubyCodes Code => RubyCodes.UserDefined;
     
     public AbstractEntity ClassName { get; set; }
 

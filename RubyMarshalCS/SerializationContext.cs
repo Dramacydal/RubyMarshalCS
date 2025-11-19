@@ -6,6 +6,17 @@ namespace RubyMarshalCS;
 
 public class SerializationContext
 {
+    public RubyNil Nil { get; private set; }
+    public RubyTrue True { get; private set; }
+    public RubyFalse False { get; private set; }
+
+    public SerializationContext()
+    {
+        Nil = Create<RubyNil>();
+        True = Create<RubyTrue>();
+        False = Create<RubyFalse>();
+    }
+
     private int objectIdCounter = 0;
     private int symbolIdCounter = 0;
     

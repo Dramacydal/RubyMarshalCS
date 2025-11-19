@@ -4,7 +4,7 @@ namespace RubyMarshalCS.Entities;
 
 public class RubySymbolLink : AbstractEntity
 {
-    public override RubyCodes Code { get; protected set; } = RubyCodes.SymbolLink;
+    public override RubyCodes Code => RubyCodes.SymbolLink;
 
     public int ReferenceId { get; set; }
 

@@ -4,7 +4,7 @@ namespace RubyMarshalCS.Entities;
 
 public class RubyFloat : AbstractEntity
 {
-    public override RubyCodes Code { get; protected set; } = RubyCodes.Float;
+    public override RubyCodes Code => RubyCodes.Float;
     
     public double Value { get; set; }
 

@@ -4,7 +4,7 @@ namespace RubyMarshalCS.Entities;
 
 public class RubyFixNum : AbstractEntity
 {
-    public override RubyCodes Code { get; protected set; } = RubyCodes.FixNum;
+    public override RubyCodes Code => RubyCodes.FixNum;
 
     public int Value { get; set; }
 

@@ -4,7 +4,7 @@ namespace RubyMarshalCS.Entities;
 
 public class RubyHash : AbstractEntity
 {
-    public override RubyCodes Code { get; protected set; } = RubyCodes.Hash;
+    public override RubyCodes Code => RubyCodes.Hash;
 
     public List<KeyValuePair<AbstractEntity, AbstractEntity>> Pairs = new();
 

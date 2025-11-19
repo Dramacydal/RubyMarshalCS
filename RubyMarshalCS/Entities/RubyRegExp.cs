@@ -5,7 +5,7 @@ namespace RubyMarshalCS.Entities;
 
 public class RubyRegExp : AbstractEntity
 {
-    public override RubyCodes Code { get; protected set; } = RubyCodes.RegExp;
+    public override RubyCodes Code => RubyCodes.RegExp;
 
     public byte[] Bytes { get; set; }
     public RubyRegexpOptions Options { get; set; }

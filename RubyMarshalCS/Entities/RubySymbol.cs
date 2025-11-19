@@ -5,7 +5,7 @@ namespace RubyMarshalCS.Entities;
 
 public class RubySymbol : AbstractEntity
 {
-    public override RubyCodes Code { get; protected set; } = RubyCodes.Symbol;
+    public override RubyCodes Code => RubyCodes.Symbol;
     
     public byte[] Value { get; set; }
 

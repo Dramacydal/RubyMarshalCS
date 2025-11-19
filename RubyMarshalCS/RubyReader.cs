@@ -48,11 +48,11 @@ public class RubyReader
         switch (code)
         {
             case RubyCodes.Nil:
-                return _serializationContext.Create<RubyNil>();
+                return _serializationContext.Nil;
             case RubyCodes.True:
-                return _serializationContext.Create<RubyTrue>();
+                return _serializationContext.True;
             case RubyCodes.False:
-                return _serializationContext.Create<RubyFalse>();
+                return _serializationContext.False;
             case RubyCodes.FixNum:
                 return ReadFixNum(context);
             case RubyCodes.Float:
@@ -97,7 +97,6 @@ public class RubyReader
                 return ReadData(context);
             case RubyCodes.UClass:
                 return ReadUClass(context);
-
         }
 
         throw new Exception($"Unsupported entity: {code}");

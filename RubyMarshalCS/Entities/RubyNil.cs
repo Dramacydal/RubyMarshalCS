@@ -4,5 +4,5 @@ namespace RubyMarshalCS.Entities;
 
 public class RubyNil : AbstractEntity
 {
-    public override RubyCodes Code { get; protected set; } = RubyCodes.Nil;
+    public override RubyCodes Code => RubyCodes.Nil;
 }

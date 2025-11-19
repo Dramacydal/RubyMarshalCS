@@ -6,7 +6,7 @@ public abstract class AbstractEntity
 {
     public SerializationContext Context { get; set; }
 
-    public abstract RubyCodes Code { get; protected set; }
+    public abstract RubyCodes Code { get; }
     
     public readonly List<AbstractEntity> Modules = new();
 

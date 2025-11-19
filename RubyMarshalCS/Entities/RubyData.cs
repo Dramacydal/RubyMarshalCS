@@ -4,7 +4,7 @@ namespace RubyMarshalCS.Entities;
 
 public class RubyData : AbstractEntity
 {
-    public override RubyCodes Code { get; protected set; } = RubyCodes.Data;
+    public override RubyCodes Code => RubyCodes.Data;
     
     public AbstractEntity ClassName { get; set; }
     
