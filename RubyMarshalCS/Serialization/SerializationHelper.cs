@@ -169,11 +169,12 @@ public class SerializationHelper
         {
             if (attr is RubyPropertyAttribute ra)
             {
-                if (info.FieldCandidates.ContainsKey(ra.PropertyName))
+                var propertyName = !string.IsNullOrWhiteSpace(ra.PropertyName) ? ra.PropertyName : member.Name;
+                if (info.FieldCandidates.ContainsKey(propertyName))
                     throw new Exception(
-                        $"Type [{member.DeclaringType.Name}] has duplicate property [{ra.PropertyName}]");
+                        $"Type [{member.DeclaringType.Name}] has duplicate property [{propertyName}]");
 
-                info.FieldCandidates[ra.PropertyName] = new(member, ra.Flags);
+                info.FieldCandidates[propertyName] = new(member, ra.Flags);
             }
 
             if (attr is RubyExtensionDataAttribute re)
