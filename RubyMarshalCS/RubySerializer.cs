@@ -123,8 +123,8 @@ public class RubySerializer
 
     private AbstractEntity SerializeUserObject(Type serializerType, object value, CandidateFlags flags = CandidateFlags.None)
     {
-        if (_serializedObjects.ContainsKey(value))
-            return _serializedObjects[value];
+        if (_serializedObjects.TryGetValue(value, out var o))
+            return o;
 
         var serializer = Activator.CreateInstance(serializerType);
 
@@ -133,7 +133,7 @@ public class RubySerializer
 
         var ru = (RubyUserDefined)_context.Create(RubyCodes.UserDefined);
 
-        serializerType.GetMethod("Write")!.Invoke(serializer, new[] { value, writer });
+        serializerType.GetMethod("Write")!.Invoke(serializer, [value, writer]);
 
         if (value is GenericUserObject go)
             ru.ClassName = SerializeSymbol(go.Name);
@@ -149,8 +149,8 @@ public class RubySerializer
 
     private AbstractEntity SerializeObject(string rubyObjectTypeName, object value, CandidateFlags flags)
     {
-        if (_serializedObjects.ContainsKey(value))
-            return _serializedObjects[value];
+        if (_serializedObjects.TryGetValue(value, out var o))
+            return o;
 
         var ro = (RubyObject)_context.Create(RubyCodes.Object);
 
@@ -161,35 +161,22 @@ public class RubySerializer
         var objectType = value.GetType();
         var info = SerializationHelper.GetTypeCandidateInfo(objectType);
         
-        info.OnPreSerializeMethod?.Invoke(value, new object[] { ro });
+        info.OnSerializingMethod?.Invoke(value, [ro]);
         
         foreach (var (fieldName, fieldCandidate) in info.FieldCandidates)
         {
             if ((fieldCandidate.Flags & CandidateFlags.InOut) != 0 && !fieldCandidate.Flags.HasFlag(CandidateFlags.Out)  && _settings.ConsiderInOutFields)
                 continue;
 
-            object? fieldValue = null;
-            if (fieldCandidate.Type == CandidateType.Field)
-                fieldValue = (fieldCandidate.Member as FieldInfo)!.GetValue(value);
-            else if (fieldCandidate.Type == CandidateType.Property)
-                fieldValue = (fieldCandidate.Member as PropertyInfo)!.GetValue(value);
+            var fieldValue = fieldCandidate.GetValue(value);
 
             ro.Fields.Add(new(SerializeSymbol(fieldName), SerializeValue(fieldValue, fieldCandidate.Flags)));
         }
 
-        if (info.ExtensionDataCandidate != null)
-        {
-            Dictionary<string, object?>? map;
-            if (info.ExtensionDataCandidate.Type == CandidateType.Field)
-                map = (info.ExtensionDataCandidate.Member as FieldInfo)!.GetValue(value) as Dictionary<string, object?>;
-            else
-                map = (info.ExtensionDataCandidate.Member as PropertyInfo)!.GetValue(value) as Dictionary<string, object?>;
+        if (info.ExtensionDataCandidate?.GetValue(value) is Dictionary<string, object?> map)
+            WriteUnknownObjectFields(map, ro);
 
-            if (map != null)
-                WriteUnknownObjectFields(map, ro);
-        }
-        
-        info.OnSerializeMethod?.Invoke(value, new object[] { ro });
+        info.OnSerializedMethod?.Invoke(value, [ro]);
 
         return ro;
     }

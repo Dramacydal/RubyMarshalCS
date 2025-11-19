@@ -1,6 +1,6 @@
 ﻿namespace RubyMarshalCS.Serialization.Attributes;
 
 [AttributeUsage(AttributeTargets.Method)]
-public class RubyOnDeserializeAttribute : Attribute
+public class RubyOnSerializingAttribute : Attribute
 {
 }

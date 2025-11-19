@@ -1,15 +1,15 @@
-﻿using RubyMarshalCS.Serialization;
+﻿using RubyMarshalCS.Serialization.Interfaces;
 
 namespace RubyMarshalCS.SpecialTypes.Serializers;
 
-public class GenericUserObjectSerializer : AbstractRubyUserSerializer<GenericUserObject>
+public class GenericUserObjectSerializer : IRubyUserSerializer<GenericUserObject>
 {
-    public override void Read(GenericUserObject obj, BinaryReader reader)
+    public void Read(GenericUserObject obj, BinaryReader reader)
     {
         obj.Data = reader.ReadBytes((int)reader.BaseStream.Length);
     }
 
-    public override void Write(GenericUserObject obj, BinaryWriter writer)
+    public void Write(GenericUserObject obj, BinaryWriter writer)
     {
         writer.Write(obj.Data);
     }

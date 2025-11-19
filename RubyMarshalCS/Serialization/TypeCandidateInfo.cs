@@ -15,11 +15,11 @@ public class TypeCandidateInfo
 
     public Candidate? ExtensionDataCandidate { get; set; }
     
-    public MethodInfo? OnPreSerializeMethod { get; set; }
+    public MethodInfo? OnSerializingMethod { get; set; }
     
-    public MethodInfo? OnSerializeMethod { get; set; }
+    public MethodInfo? OnSerializedMethod { get; set; }
     
-    public MethodInfo? OnPreDeserializeMethod { get; set; }
+    public MethodInfo? OnDeserializingMethod { get; set; }
     
-    public MethodInfo? OnDeserializeMethod { get; set; }
+    public MethodInfo? OnDeserializedMethod { get; set; }
 }

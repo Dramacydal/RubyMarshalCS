@@ -35,7 +35,7 @@ public class RubyDeserializer
 
         var info = SerializationHelper.GetTypeCandidateInfo(type);
 
-        info.OnPreDeserializeMethod?.Invoke(obj, new object[] { data });
+        info.OnDeserializingMethod?.Invoke(obj, [data]);
 
         foreach (var (key, value) in data.Fields)
         {
@@ -47,21 +47,7 @@ public class RubyDeserializer
                     _settings.ConsiderInOutFields)
                     continue;
 
-                ValueWrapper w;
-
-                switch (candidate.Type)
-                {
-                    case CandidateType.Property:
-                        w = new(obj, (candidate.Member as PropertyInfo)!);
-                        break;
-                    case CandidateType.Field:
-                        w = new(obj, (candidate.Member as FieldInfo)!);
-                        break;
-                    default:
-                        continue;
-                }
-
-                w.SetValue(DeserializeEntity(value), candidate.Flags.HasFlag(CandidateFlags.Dynamic));
+                ValueWrapper.SetValue(candidate, obj, DeserializeEntity(value), candidate.Flags.HasFlag(CandidateFlags.Dynamic));
             }
             else
             {
@@ -72,7 +58,7 @@ public class RubyDeserializer
             }
         }
 
-        info.OnDeserializeMethod?.Invoke(obj, new object[] { data });
+        info.OnDeserializedMethod?.Invoke(obj, [data]);
 
         return obj;
     }
@@ -81,18 +67,7 @@ public class RubyDeserializer
     {
         if (extensionCandidate.ExtensionDataCandidate != null)
         {
-            object? extensionData = null;
-
-            switch (extensionCandidate.ExtensionDataCandidate.Type)
-            {
-                case CandidateType.Property:
-                    extensionData = (extensionCandidate.ExtensionDataCandidate.Member as PropertyInfo)!.GetValue(obj);
-                    break;
-                case CandidateType.Field:
-                    extensionData = (extensionCandidate.ExtensionDataCandidate.Member as FieldInfo)!.GetValue(obj);
-                    break;
-            }
-
+            var extensionData = extensionCandidate.ExtensionDataCandidate.GetValue(obj);
             if (extensionData != null)
                 ((Dictionary<string, object?>)extensionData)[fieldName] = value;
         }
@@ -108,8 +83,8 @@ public class RubyDeserializer
         {
             case RubyCodes.Symbol:
             {
-                if (_objectConversionMap.ContainsKey(e))
-                    return _objectConversionMap[e];
+                if (_objectConversionMap.TryGetValue(e, out var entity))
+                    return entity;
 
                 var value = LookupEncoding(e).GetString(((RubySymbol)e).Value);
 
@@ -119,8 +94,8 @@ public class RubyDeserializer
             }
             case RubyCodes.String:
             {
-                if (_objectConversionMap.ContainsKey(e))
-                    return _objectConversionMap[e];
+                if (_objectConversionMap.TryGetValue(e, out var entity))
+                    return entity;
 
                 var value = new BinaryString(((RubyString)e).Bytes, LookupEncoding(e));
 
@@ -130,8 +105,8 @@ public class RubyDeserializer
             }
             case RubyCodes.Array:
             {
-                if (_objectConversionMap.ContainsKey(e))
-                    return _objectConversionMap[e];
+                if (_objectConversionMap.TryGetValue(e, out var entity))
+                    return entity;
 
                 IList list = new List<object>();
 
@@ -147,8 +122,8 @@ public class RubyDeserializer
             }
             case RubyCodes.Hash:
             {
-                if (_objectConversionMap.ContainsKey(e))
-                    return _objectConversionMap[e];
+                if (_objectConversionMap.TryGetValue(e, out var entity))
+                    return entity;
 
                 var hash = (RubyHash)e;
 
@@ -173,8 +148,8 @@ public class RubyDeserializer
             }
             case RubyCodes.UserDefined:
             {
-                if (_objectConversionMap.ContainsKey(e))
-                    return _objectConversionMap[e];
+                if (_objectConversionMap.TryGetValue(e, out var entity))
+                    return entity;
 
                 var ru = (RubyUserDefined)e;
                 var objectName = ru.GetRealClassName();
@@ -194,8 +169,8 @@ public class RubyDeserializer
             }
             case RubyCodes.Object:
             {
-                if (_objectConversionMap.ContainsKey(e))
-                    return _objectConversionMap[e];
+                if (_objectConversionMap.TryGetValue(e, out var entity))
+                    return entity;
 
                 var ro = (RubyObject)e;
 
@@ -267,7 +242,7 @@ public class RubyDeserializer
         using var stream = new MemoryStream(data.Bytes);
         using var reader = new BinaryReader(stream);
         var obj = Activator.CreateInstance(type)!;
-        method.Invoke(serializer, new[] { obj, reader });
+        method.Invoke(serializer, [obj, reader]);
 
         if (obj is GenericUserObject guo)
             guo.Name = objectName;

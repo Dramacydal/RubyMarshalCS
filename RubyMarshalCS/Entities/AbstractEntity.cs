@@ -1,12 +1,9 @@
-﻿using Newtonsoft.Json;
-using RubyMarshalCS.Enums;
+﻿using RubyMarshalCS.Enums;
 
 namespace RubyMarshalCS.Entities;
 
-// [JsonConverter(typeof(EntityConverter))]
 public abstract class AbstractEntity
 {
-    [JsonIgnore]
     public SerializationContext Context { get; set; }
 
     public abstract RubyCodes Code { get; protected set; }

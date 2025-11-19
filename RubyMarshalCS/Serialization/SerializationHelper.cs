@@ -100,7 +100,7 @@ public class SerializationHelper
             if (attr.GetType() == typeof(RubyUserSerializerAttribute))
             {
                 var rus = (RubyUserSerializerAttribute)attr;
-                GetInstance().RegisterUserObjectSerializer(serializer, rus.Type, rus.ContextTag);
+                GetInstance().RegisterUserObjectSerializer(rus.Type, serializer, rus.ContextTag);
             }
         }
 
@@ -144,59 +144,36 @@ public class SerializationHelper
         _customConverters.Add((ICustomConverter)Activator.CreateInstance(type)!);
     }
 
-    private static Dictionary<Type, TypeCandidateInfo> _infos = new();
+    private static readonly Dictionary<Type, TypeCandidateInfo> _infos = new();
 
-    private static Dictionary<Type, Type?> _elementTypeForListMap = new();
+    private static readonly Dictionary<Type, Type?> _elementTypeForListMap = new();
 
-    private static Dictionary<Type, Tuple<Type, Type>?> _elemenTypeForDictionaryMap = new();
+    private static readonly Dictionary<Type, Tuple<Type, Type>?> _elemenTypeForDictionaryMap = new();
 
-    private Dictionary<string, Dictionary<string, Type>> _rubyObjectTypeNamesToTypeMap = new();
-    private Dictionary<string, Dictionary<Type, string>> _typeToRubyObjectMap = new();
+    private readonly Dictionary<string, Dictionary<string, Type>> _rubyObjectTypeNamesToTypeMap = new();
+    private readonly Dictionary<string, Dictionary<Type, string>> _typeToRubyObjectMap = new();
 
-    private Dictionary<string, Dictionary<Type, Type>> _userSerializersByType = new();
+    private readonly Dictionary<string, Dictionary<Type, Type>> _userSerializersByType = new();
 
-    private List<ICustomConverter> _customConverters = new();
+    private readonly List<ICustomConverter> _customConverters = new();
 
     public static Candidate? GetFieldCandidate(Type type, string fieldName)
     {
-        var info = GetTypeCandidateInfo(type);
-
-        if (info.FieldCandidates.ContainsKey(fieldName))
-            return info.FieldCandidates[fieldName];
-
-        // var strippedName = fieldName.StartsWith('@') ? fieldName.Substring(1) : fieldName;
-        //
-        // var prop = type.GetProperty(strippedName);
-        // if (prop != null)
-        //     return new()
-        //     {
-        //         Type = CandidateType.Property,
-        //         Name = prop.Name
-        //     };
-        //
-        // var field = type.GetField(strippedName);
-        // if (field != null)
-        //     return new()
-        //     {
-        //         Type = CandidateType.Field,
-        //         Name = field.Name
-        //     };
-
-        return null;
+        return GetTypeCandidateInfo(type).FieldCandidates.GetValueOrDefault(fieldName);
     }
 
-    private static void AttributeChecker(CandidateType candidateType, MemberInfo member, TypeCandidateInfo info)
+    private static void AttributeChecker(MemberInfo member, TypeCandidateInfo info)
     {
         var attributes = member.GetCustomAttributes(true);
         foreach (var attr in attributes)
         {
             if (attr is RubyPropertyAttribute ra)
             {
-                if (info.FieldCandidates.ContainsKey(ra.Name))
+                if (info.FieldCandidates.ContainsKey(ra.PropertyName))
                     throw new Exception(
-                        $"Type [{member.DeclaringType.Name}] has duplicate property [{ra.Name}]");
+                        $"Type [{member.DeclaringType.Name}] has duplicate property [{ra.PropertyName}]");
 
-                info.FieldCandidates[ra.Name] = new(candidateType, member, ra.Flags);
+                info.FieldCandidates[ra.PropertyName] = new(member, ra.Flags);
             }
 
             if (attr is RubyExtensionDataAttribute re)
@@ -215,38 +192,38 @@ public class SerializationHelper
                             $"{nameof(RubyExtensionDataAttribute)} on wrong field type, must be Dictionary<string, object?>");
                 }
 
-                info.ExtensionDataCandidate = new(candidateType, member);
+                info.ExtensionDataCandidate = new(member);
             }
 
-            if (attr is RubyOnPreDeserializeAttribute)
-                info.OnPreDeserializeMethod = member as MethodInfo;
+            if (attr is RubyOnDeserializingAttribute)
+                info.OnDeserializingMethod = member as MethodInfo;
             
-            if (attr is RubyOnDeserializeAttribute)
-                info.OnDeserializeMethod = member as MethodInfo;
+            if (attr is RubyOnDeserializedAttribute)
+                info.OnDeserializedMethod = member as MethodInfo;
             
-            if (attr is RubyOnPreSerializeAttribute)
-                info.OnPreSerializeMethod = member as MethodInfo;
+            if (attr is RubyOnSerializingAttribute)
+                info.OnSerializingMethod = member as MethodInfo;
             
-            if (attr is RubyOnSerializeAttribute)
-                info.OnSerializeMethod = member as MethodInfo;
+            if (attr is RubyOnSerializedAttribute)
+                info.OnSerializedMethod = member as MethodInfo;
         }
     }
 
     public static TypeCandidateInfo GetTypeCandidateInfo(Type type)
     {
-        if (_infos.ContainsKey(type))
-            return _infos[type];
+        if (_infos.TryGetValue(type, out var candidateInfo))
+            return candidateInfo;
 
         TypeCandidateInfo info = new(type);
 
         foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
-            AttributeChecker(CandidateType.Field, field, info);
+            AttributeChecker(field, info);
 
         foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
-            AttributeChecker(CandidateType.Property, property, info);
+            AttributeChecker(property, info);
 
         foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
-            AttributeChecker(CandidateType.Method, method, info);
+            AttributeChecker(method, info);
 
         _infos[type] = info;
 
