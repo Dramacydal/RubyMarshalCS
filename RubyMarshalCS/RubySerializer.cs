@@ -47,7 +47,7 @@ public class RubySerializer
     private AbstractEntity SerializeValue(object? value, CandidateFlags flags = CandidateFlags.None)
     {
         if (value == null)
-            return _context.Create(RubyCodes.Nil);
+            return _context.Create<RubyNil>();
 
         if (value is IDynamicProperty dp)
             value = dp.Get();
@@ -80,7 +80,7 @@ public class RubySerializer
                 return SerializeBigInt(val, flags);
             }
             case TypeCode.Boolean:
-                return (bool)value ? _context.Create(RubyCodes.True) : _context.Create(RubyCodes.False);
+                return (bool)value ? _context.Create<RubyTrue>() : _context.Create<RubyFalse>();
             case TypeCode.Decimal:
             case TypeCode.Single:
             case TypeCode.Double:
@@ -131,7 +131,7 @@ public class RubySerializer
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream);
 
-        var ru = (RubyUserDefined)_context.Create(RubyCodes.UserDefined);
+        var ru = _context.Create<RubyUserDefined>();
 
         serializerType.GetMethod("Write")!.Invoke(serializer, [value, writer]);
 
@@ -152,7 +152,7 @@ public class RubySerializer
         if (_serializedObjects.TryGetValue(value, out var o))
             return o;
 
-        var ro = (RubyObject)_context.Create(RubyCodes.Object);
+        var ro = _context.Create<RubyObject>();
 
         _serializedObjects[value] = ro;
 
@@ -189,7 +189,7 @@ public class RubySerializer
 
     private AbstractEntity SerializeInt(int value, CandidateFlags candidateFlags = CandidateFlags.None)
     {
-        var rf = (RubyFixNum)_context.Create(RubyCodes.FixNum);
+        var rf = _context.Create<RubyFixNum>();
         rf.Value = value;
 
         return rf;
@@ -197,10 +197,10 @@ public class RubySerializer
 
     private AbstractEntity SerializeFloat(double value, CandidateFlags flags = CandidateFlags.None)
     {
-        if (_serializedFloats.ContainsKey(value))
-            return _serializedFloats[value];
+        if (_serializedFloats.TryGetValue(value, out var f))
+            return f;
 
-        var rf = (RubyFloat)_context.Create(RubyCodes.Float);
+        var rf = _context.Create<RubyFloat>();
         rf.Value = value;
 
         _serializedFloats[value] = rf;
@@ -210,10 +210,10 @@ public class RubySerializer
 
     private AbstractEntity SerializeBigInt(BigInteger value, CandidateFlags flags = CandidateFlags.None)
     {
-        if (_serializedBigInts.ContainsKey(value))
-            return _serializedBigInts[value];
+        if (_serializedBigInts.TryGetValue(value, out var i))
+            return i;
 
-        var rbn = (RubyBigNum)_context.Create(RubyCodes.BigNum);
+        var rbn = _context.Create<RubyBigNum>();
         rbn.Value = value;
 
         _serializedBigInts[value] = rbn;
@@ -223,10 +223,10 @@ public class RubySerializer
 
     private AbstractEntity SerializeDictionary(IDictionary value, CandidateFlags flags = CandidateFlags.None)
     {
-        if (_serializedObjects.ContainsKey(value))
-            return _serializedObjects[value];
+        if (_serializedObjects.TryGetValue(value, out var o))
+            return o;
 
-        var rh = (RubyHash)_context.Create(RubyCodes.Hash);
+        var rh = _context.Create<RubyHash>();
 
         _serializedObjects[value] = rh;
 
@@ -241,10 +241,10 @@ public class RubySerializer
 
     private AbstractEntity SerializeArray(IList value, CandidateFlags flags = CandidateFlags.None)
     {
-        if (_serializedObjects.ContainsKey(value))
-            return _serializedObjects[value];
+        if (_serializedObjects.TryGetValue(value, out var o))
+            return o;
 
-        var ra = (RubyArray)_context.Create(RubyCodes.Array);
+        var ra = _context.Create<RubyArray>();
 
         _serializedObjects[value] = ra;
 
@@ -268,10 +268,10 @@ public class RubySerializer
     {
         var asHex = Convert.ToHexString(value);
 
-        if (_serializedStrings.ContainsKey(asHex))
-            return _serializedStrings[asHex];
+        if (_serializedStrings.TryGetValue(asHex, out var s))
+            return s;
 
-        var rs = (RubyString)_context.Create(RubyCodes.String);
+        var rs = _context.Create<RubyString>();
 
         _serializedStrings[asHex] = rs;
 
@@ -291,13 +291,13 @@ public class RubySerializer
                 // ASCII-8bit
                 break;
             case 20127:
-                encodingValue = _context.Create(RubyCodes.False);
+                encodingValue = _context.Create<RubyFalse>();
                 break;
             case 28591:
                 encodingValue = SerializeString("ISO-8859-1");
                 break;
             case 65001:
-                encodingValue = _context.Create(RubyCodes.True);
+                encodingValue = _context.Create<RubyTrue>();
                 break;
         }
 
@@ -309,10 +309,10 @@ public class RubySerializer
 
     private AbstractEntity SerializeSymbol(string value)
     {
-        if (_serializedSymbols.ContainsKey(value))
-            return _serializedSymbols[value];
+        if (_serializedSymbols.TryGetValue(value, out var symbol))
+            return symbol;
 
-        var rs = (RubySymbol)_context.Create(RubyCodes.Symbol);
+        var rs = _context.Create<RubySymbol>();
         // TODO: strictly ASCII-8 bit encoding here
         rs.Value = Encoding.UTF8.GetBytes(value);
 

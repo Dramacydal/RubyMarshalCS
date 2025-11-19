@@ -5,8 +5,8 @@ using System.Text;
 using RubyMarshalCS.Conversion.Attributes;
 using RubyMarshalCS.Conversion.Interfaces;
 using RubyMarshalCS.Serialization.Attributes;
-using RubyMarshalCS.Serialization.Enums;
 using RubyMarshalCS.Serialization.Interfaces;
+using RubyMarshalCS.SpecialTypes;
 using RubyMarshalCS.SpecialTypes.Interfaces;
 
 namespace RubyMarshalCS.Serialization;
@@ -340,9 +340,17 @@ public class SerializationHelper
 
         if (objectType.IsPrimitive && type.IsPrimitive)
             return o;
+
+        if (type.IsEnum && objectType.IsPrimitive)
+            return Enum.ToObject(type, Convert.ToInt32(o));
+
+        if (objectType == typeof(BinaryString) && type == typeof(string))
+            return ((BinaryString)o).Value;
         
         if (objectType == typeof(string))
         {
+            if (type == typeof(BinaryString))
+                return new BinaryString((string)o);
             if (type == typeof(bool))
                 return Convert.ToBoolean(o);
             if (type == typeof(byte))
@@ -377,6 +385,9 @@ public class SerializationHelper
                 return o;
         }
 
+        if (type.IsInstanceOfType(o))
+            return o;
+        
         var converter = GetCustomConverter(o, type);
         if (converter != null)
             return converter.Convert(o, type);

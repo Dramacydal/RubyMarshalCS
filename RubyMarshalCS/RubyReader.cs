@@ -48,11 +48,11 @@ public class RubyReader
         switch (code)
         {
             case RubyCodes.Nil:
-                return _serializationContext.Create(RubyCodes.Nil);
+                return _serializationContext.Create<RubyNil>();
             case RubyCodes.True:
-                return _serializationContext.Create(RubyCodes.True);
+                return _serializationContext.Create<RubyTrue>();
             case RubyCodes.False:
-                return _serializationContext.Create(RubyCodes.False);
+                return _serializationContext.Create<RubyFalse>();
             case RubyCodes.FixNum:
                 return ReadFixNum(context);
             case RubyCodes.Float:
@@ -115,7 +115,7 @@ public class RubyReader
 
     private AbstractEntity ReadData(ReaderContext context)
     {
-        var entity = (RubyData)_serializationContext.Create(RubyCodes.Data);
+        var entity = _serializationContext.Create<RubyData>();
         entity.ClassName = context.WithSubContext(false, r_symbol);
 
         _serializationContext.RememberObject(entity);
@@ -127,7 +127,7 @@ public class RubyReader
 
     private AbstractEntity ReadStruct(ReaderContext context)
     {
-        var entity = (RubyStruct)_serializationContext.Create(RubyCodes.Struct);
+        var entity = _serializationContext.Create<RubyStruct>();
         entity.Name = context.WithSubContext(false, r_symbol);
 
         _serializationContext.RememberObject(entity);
@@ -146,7 +146,7 @@ public class RubyReader
 
     private AbstractEntity ReadModuleOld(ReaderContext context)
     {
-        var entity = (RubyModuleOld)_serializationContext.Create(RubyCodes.ModuleOld);
+        var entity = _serializationContext.Create<RubyModuleOld>();
         _serializationContext.RememberObject(entity);
 
         entity.Bytes = _reader.ReadByteSequence();
@@ -156,7 +156,7 @@ public class RubyReader
 
     private AbstractEntity ReadModule(ReaderContext context)
     {
-        var entity = (RubyModule)_serializationContext.Create(RubyCodes.Module);
+        var entity = _serializationContext.Create<RubyModule>();
         _serializationContext.RememberObject(entity);
 
         entity.Bytes = _reader.ReadByteSequence();
@@ -166,7 +166,7 @@ public class RubyReader
 
     private AbstractEntity ReadRegExp(ReaderContext context)
     {
-        var entity = (RubyRegExp)_serializationContext.Create(RubyCodes.RegExp);
+        var entity = _serializationContext.Create<RubyRegExp>();
 
         entity.Bytes = _reader.ReadByteSequence();
         entity.Options = (RubyRegexpOptions)_reader.ReadByte();
@@ -184,7 +184,7 @@ public class RubyReader
 
     private AbstractEntity ReadBigNum(ReaderContext context)
     {
-        var entity = (RubyBigNum)_serializationContext.Create(RubyCodes.BigNum);
+        var entity = _serializationContext.Create<RubyBigNum>();
         _serializationContext.RememberObject(entity);
 
         entity.Value = _reader.ReadPackedBigInteger();
@@ -213,7 +213,7 @@ public class RubyReader
 
     private AbstractEntity ReadClass(ReaderContext context)
     {
-        var entity = (RubyClass)_serializationContext.Create(RubyCodes.Class);
+        var entity = _serializationContext.Create<RubyClass>();
         _serializationContext.RememberObject(entity);
 
         entity.Bytes = _reader.ReadByteSequence();
@@ -223,7 +223,7 @@ public class RubyReader
 
     private AbstractEntity ReadUserMarshal(ReaderContext context)
     {
-        var entity = (RubyUserMarshal)_serializationContext.Create(RubyCodes.UserMarshal);
+        var entity = _serializationContext.Create<RubyUserMarshal>();
         entity.ClassName = context.WithSubContext(false, r_symbol);
         
         _serializationContext.RememberObject(entity);
@@ -235,7 +235,7 @@ public class RubyReader
 
     private AbstractEntity ReadUserDefined(ReaderContext context)
     {
-        var entity = (RubyUserDefined)_serializationContext.Create(RubyCodes.UserDefined);
+        var entity = _serializationContext.Create<RubyUserDefined>();
         entity.ClassName = context.WithSubContext(false, r_symbol);
         entity.Bytes = _reader.ReadByteSequence();
 
@@ -252,7 +252,7 @@ public class RubyReader
 
     private AbstractEntity ReadHashDef(ReaderContext context)
     {
-        var entity = (RubyHash)_serializationContext.Create(RubyCodes.Hash);
+        var entity = _serializationContext.Create<RubyHash>();
         _serializationContext.RememberObject(entity);
         
         var len = _reader.ReadFixNum();
@@ -271,7 +271,7 @@ public class RubyReader
     
     private AbstractEntity ReadHash(ReaderContext context)
     {
-        var entity = (RubyHash)_serializationContext.Create(RubyCodes.Hash);
+        var entity = _serializationContext.Create<RubyHash>();
         _serializationContext.RememberObject(entity);
         
         var len = _reader.ReadFixNum();
@@ -288,7 +288,7 @@ public class RubyReader
 
     private AbstractEntity ReadArray(ReaderContext context)
     {
-        var entity = (RubyArray)_serializationContext.Create(RubyCodes.Array);
+        var entity = _serializationContext.Create<RubyArray>();
         _serializationContext.RememberObject(entity);
         
         var len = _reader.ReadFixNum();
@@ -300,7 +300,7 @@ public class RubyReader
 
     private AbstractEntity ReadString(ReaderContext context)
     {
-        var entity = (RubyString)_serializationContext.Create(RubyCodes.String);
+        var entity = _serializationContext.Create<RubyString>();
         entity.Bytes = _reader.ReadByteSequence();
 
         _serializationContext.RememberObject(entity);
@@ -321,7 +321,7 @@ public class RubyReader
 
     private AbstractEntity ReadObjectLink(ReaderContext context)
     {
-        var entity = (RubyObjectLink)_serializationContext.Create(RubyCodes.ObjectLink);
+        var entity = _serializationContext.Create<RubyObjectLink>();
         entity.ReferenceId = _reader.ReadFixNum();
         if (_settings.ResolveLinks)
             return _serializationContext.LookupRememberedObject(entity);
@@ -331,7 +331,7 @@ public class RubyReader
 
     private AbstractEntity ReadSymbolLink(ReaderContext context)
     {
-        var entity = (RubySymbolLink)_serializationContext.Create(RubyCodes.SymbolLink);
+        var entity = _serializationContext.Create<RubySymbolLink>();
         entity.ReferenceId = _reader.ReadFixNum();
         if (_settings.ResolveLinks)
             return _serializationContext.LookupRememberedSymbol(entity);
@@ -341,7 +341,7 @@ public class RubyReader
 
     private AbstractEntity ReadSymbol(ReaderContext context)
     {
-        var entity = (RubySymbol)_serializationContext.Create(RubyCodes.Symbol);
+        var entity = _serializationContext.Create<RubySymbol>();
         entity.Value = _reader.ReadByteSequence();
 
         _serializationContext.RememberSymbol(entity);
@@ -392,7 +392,7 @@ public class RubyReader
     {
         var className = context.WithSubContext(false, r_symbol);
 
-        var entity = (RubyObject)_serializationContext.Create(RubyCodes.Object);
+        var entity = _serializationContext.Create<RubyObject>();
         entity.ClassName = className;
 
         _serializationContext.RememberObject(entity);
@@ -404,7 +404,7 @@ public class RubyReader
 
     private AbstractEntity ReadFixNum(ReaderContext context)
     {
-        var entity = (RubyFixNum)_serializationContext.Create(RubyCodes.FixNum);
+        var entity = _serializationContext.Create<RubyFixNum>();
         entity.Value = _reader.ReadFixNum();
 
         return entity;
@@ -412,7 +412,7 @@ public class RubyReader
 
     private AbstractEntity ReadFloat(ReaderContext context)
     {
-        var entity = (RubyFloat)_serializationContext.Create(RubyCodes.Float);
+        var entity = _serializationContext.Create<RubyFloat>();
         _serializationContext.RememberObject(entity);
         
         entity.Value = _reader.ReadPackedFloat();
@@ -433,7 +433,7 @@ public class RubyReader
             case RubyCodes.SymbolLink:
                 return ReadSymbolLink(context);
             default:
-                throw new Exception("Unsupported object r_symbol: {code}");
+                throw new Exception($"Unsupported object r_symbol: {code}");
         }
     }
 

@@ -78,14 +78,12 @@ public class SerializationContext
     
     public int LookupStoredSymbolIndex(AbstractEntity entity) => _symbolInstances.IndexOf(entity);
 
-    public AbstractEntity Create(RubyCodes code)
+    public T Create<T>() where T: AbstractEntity, new()
     {
-        if (!CodeToObjectTypeMap.TryGetValue(code, out var type))
-            throw new Exception($"Unsupported code {code}");
+        var e = new T();
 
-        var e = Activator.CreateInstance(type) as AbstractEntity;
-        e!.Context = this;
-        
+        e.Context = this;
+
         _allObjects.Add(e);
 
         return e;
