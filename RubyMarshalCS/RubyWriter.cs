@@ -7,7 +7,7 @@ namespace RubyMarshalCS;
 public class RubyWriter
 {
     private const ushort HeaderMagic = 0x804;
-    
+
     private readonly BinaryWriter _writer;
     private readonly SerializationSettings _settings;
     private SerializationContext _context;
@@ -126,7 +126,7 @@ public class RubyWriter
         w_class(RubyCodes.UserDefined, entity.ClassName);
         _writer.WriteByteSequence(entity.Bytes);
     }
-    
+
     private void WriteUserMarshal(RubyUserMarshal entity)
     {
         w_class(RubyCodes.UserMarshal, entity.ClassName);
@@ -196,14 +196,14 @@ public class RubyWriter
 
     private void WriteSymbol(RubySymbol entity)
     {
-        if (CheckWriteSymbolLink(entity))
+        if (WriteSymbolLinkIfCached(entity))
             return;
-        
+
         _context.RememberSymbol(entity);
 
         if (entity.InstanceVariables.Count > 0)
             _writer.Write((byte)RubyCodes.InstanceVar);
-        
+
         _writer.Write((byte)RubyCodes.Symbol);
         _writer.WriteByteSequence(entity.Value);
 
@@ -238,11 +238,11 @@ public class RubyWriter
 
     private void WriteWrapper(AbstractEntity entity, Action wrapper)
     {
-        if (CheckWriteObjectLink(entity))
+        if (WriteObjectLinkIfCached(entity))
             return;
-        
+
         _context.RememberObject(entity);
-        
+
         if (entity.InstanceVariables.Count > 0)
             _writer.Write((byte)RubyCodes.InstanceVar);
 
@@ -257,7 +257,7 @@ public class RubyWriter
             _writer.Write((byte)RubyCodes.UClass);
             WriteEntity(entity.UserClass);
         }
-        
+
         wrapper();
 
         if (entity.InstanceVariables.Count > 0)
@@ -270,7 +270,7 @@ public class RubyWriter
             }
         }
     }
-    
+
     private void WriteObjectLink(RubyObjectLink entity)
     {
         _writer.Write((byte)RubyCodes.ObjectLink);
@@ -282,22 +282,20 @@ public class RubyWriter
         _writer.Write((byte)RubyCodes.SymbolLink);
         _writer.WriteFixNum(entity.ReferenceId);
     }
-    
-    private bool CheckWriteObjectLink(AbstractEntity entity)
+
+    private bool WriteObjectLinkIfCached(AbstractEntity entity)
     {
-        var storedIndex = _context.LookupStoredObjectIndex(entity);
-        if (storedIndex == -1)
+        if (!_context.LookupStoredObjectIndex(entity, out var storedIndex))
             return false;
 
         WriteObjectLink(new RubyObjectLink() { ReferenceId = storedIndex });
 
         return true;
     }
-    
-    private bool CheckWriteSymbolLink(AbstractEntity entity)
+
+    private bool WriteSymbolLinkIfCached(RubySymbol entity)
     {
-        var storedIndex = _context.LookupStoredSymbolIndex(entity);
-        if (storedIndex == -1)
+        if (!_context.LookupStoredSymbolIndex(entity, out var storedIndex))
             return false;
 
         WriteSymbolLink(new RubySymbolLink() { ReferenceId = storedIndex });

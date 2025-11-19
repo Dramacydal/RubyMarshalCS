@@ -1,47 +1,27 @@
 ﻿using RubyMarshalCS.Enums;
 using RubyMarshalCS.Entities;
+using RubyMarshalCS.Helper;
 
 namespace RubyMarshalCS;
 
 public class SerializationContext
 {
-    private static readonly Dictionary<RubyCodes, Type> CodeToObjectTypeMap = new()
-    {
-        [RubyCodes.String] = typeof(RubyString),
-        [RubyCodes.RegExp] = typeof(RubyRegExp),
-        [RubyCodes.Nil] = typeof(RubyNil),
-        [RubyCodes.Symbol] = typeof(RubySymbol),
-        [RubyCodes.SymbolLink] = typeof(RubySymbolLink),
-        [RubyCodes.ObjectLink] = typeof(RubyObjectLink),
-        [RubyCodes.False] = typeof(RubyFalse),
-        [RubyCodes.True] = typeof(RubyTrue),
-        [RubyCodes.Array] = typeof(RubyArray),
-        [RubyCodes.Float] = typeof(RubyFloat),
-        [RubyCodes.FixNum] = typeof(RubyFixNum),
-        [RubyCodes.BigNum] = typeof(RubyBigNum),
-        [RubyCodes.Object] = typeof(RubyObject),
-        [RubyCodes.Struct] = typeof(RubyStruct),
-        [RubyCodes.Class] = typeof(RubyClass),
-        [RubyCodes.Module] = typeof(RubyModule),
-        [RubyCodes.ModuleOld] = typeof(RubyModuleOld),
-        [RubyCodes.UserDefined] = typeof(RubyUserDefined),
-        [RubyCodes.UserMarshal] = typeof(RubyUserMarshal),
-        [RubyCodes.Hash] = typeof(RubyHash),
-        [RubyCodes.Data] = typeof(RubyData),
-    };
-
-    private readonly List<AbstractEntity> _objectInstances = new();
-    private readonly List<AbstractEntity> _symbolInstances = new();
-    public readonly List<AbstractEntity> _allObjects = new();
+    private int objectIdCounter = 0;
+    private int symbolIdCounter = 0;
+    
+    private readonly TwoWayDictionary<int, AbstractEntity> _objectInstances = new();
+    private readonly TwoWayDictionary<int, RubySymbol> _symbolInstances = new();
 
     public void RememberObject(AbstractEntity entity)
     {
-        _objectInstances.Add(entity);
+        _objectInstances.Add(objectIdCounter, entity);
+        ++objectIdCounter;
     }
-    
-    public void RememberSymbol(AbstractEntity entity)
+
+    public void RememberSymbol(RubySymbol entity)
     {
-        _symbolInstances.Add(entity);
+        _symbolInstances.Add(symbolIdCounter, entity);
+        ++symbolIdCounter;
     }
 
     public RubySymbol LookupRememberedSymbol(AbstractEntity symbolOrLink)
@@ -52,8 +32,9 @@ public class SerializationContext
         {
             var sl = (RubySymbolLink)symbolOrLink;
 
-            if (sl.ReferenceId < _symbolInstances.Count)
-                return (RubySymbol)_symbolInstances[sl.ReferenceId];
+            if (_symbolInstances.TryGetValue(sl.ReferenceId, out var symbol))
+                return (RubySymbol)symbol!;
+
             throw new Exception("Symbol link is out of bounds");
         }
 
@@ -65,8 +46,8 @@ public class SerializationContext
         if (objectOrLink.Code == RubyCodes.ObjectLink)
         {
             var ol = (RubyObjectLink)objectOrLink;
-            if (ol.ReferenceId < _objectInstances.Count)
-                return _objectInstances[ol.ReferenceId];
+            if (_objectInstances.TryGetValue(ol.ReferenceId, out var obj))
+                return obj;
 
             throw new Exception("Object link is out of bounds");
         }
@@ -74,25 +55,24 @@ public class SerializationContext
         return objectOrLink;
     }
     
-    public int LookupStoredObjectIndex(AbstractEntity entity) => _objectInstances.IndexOf(entity);
+    public bool LookupStoredObjectIndex(AbstractEntity entity, out int id) => _objectInstances.TryGetValue(entity, out id);
     
-    public int LookupStoredSymbolIndex(AbstractEntity entity) => _symbolInstances.IndexOf(entity);
+    public bool LookupStoredSymbolIndex(RubySymbol entity, out int id) => _symbolInstances.TryGetValue(entity, out id);
 
     public T Create<T>() where T: AbstractEntity, new()
     {
-        var e = new T();
-
-        e.Context = this;
-
-        _allObjects.Add(e);
+        var e = new T
+        {
+            Context = this
+        };
 
         return e;
     }
 
     public void Reset()
     {
-        _symbolInstances.Clear();
+        objectIdCounter = symbolIdCounter = 0;
         _objectInstances.Clear();
-        _allObjects.Clear();
+        _symbolInstances.Clear();
     }
 }
