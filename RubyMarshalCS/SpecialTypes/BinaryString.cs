@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using RubyMarshalCS.Serialization;
 
 namespace RubyMarshalCS.SpecialTypes;
 
@@ -6,71 +7,50 @@ public class BinaryString
 {
     private string _value = "";
 
-    private Encoding _encoding = Encoding.UTF8;
+    private Encoding? _encoding;
 
-    private byte[] _bytes = Array.Empty<byte>();
+    private byte[] _bytes = [];
 
     public string Value
     {
         get => _value;
-        set => Set(value, _encoding);
+        set
+        {
+            _value = value;
+            _bytes = (_encoding ?? SerializationHelper.ASCII8BitEncoding).GetBytes(value);
+        }
     }
 
-    public Encoding Encoding
+    public Encoding? Encoding
     {
         get => _encoding;
-        set => Set(_value, value);
+        set
+        {
+            _encoding = value;
+            _bytes = (_encoding ?? SerializationHelper.ASCII8BitEncoding).GetBytes(Value);
+        }
     }
 
     public byte[] Bytes => _bytes;
 
-    public BinaryString()
-    {
-    }
-
     public BinaryString(string value)
     {
-        Set(value, Encoding.UTF8);
+        _value = value;
+        _encoding = null;
+        _bytes = SerializationHelper.ASCII8BitEncoding.GetBytes(_value);
     }
     
-    public BinaryString(string value, Encoding encoding)
-    {
-        Set(value, encoding);
-    }
-
-    public BinaryString(byte[] bytes, Encoding encoding)
-    {
-        Set(bytes, encoding);
-    }
-
-    public void Set(byte[] bytes, Encoding encoding)
+    public BinaryString(string value, Encoding? encoding)
     {
         _encoding = encoding;
+        Value = value;
+    }
+
+    public BinaryString(byte[] bytes, Encoding? encoding)
+    {
         _bytes = bytes;
-
-        _value = Encoding.GetString(bytes);
-    }
-
-    public void Set(string value, Encoding encoding)
-    {
         _encoding = encoding;
-        _value = value;
-
-        _bytes = Encoding.GetBytes(_value);
-    }
-
-    public void Reencode(Encoding encoding)
-    {
-        _encoding = encoding;
-
-        _bytes = encoding.GetBytes(_value);
-    }
-
-    public void ChangeEncoding(Encoding encoding)
-    {
-        _encoding = encoding;
-
-        _value = encoding.GetString(_bytes);
+        _value = (_encoding ?? SerializationHelper.ASCII8BitEncoding).GetString(_bytes);
     }
 
     public static implicit operator string(BinaryString value)

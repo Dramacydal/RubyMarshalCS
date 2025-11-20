@@ -309,11 +309,6 @@ public class RubyReader
             context.WithSubContext(false, readContext => { entity.InstanceVariables.AddRange(r_ivar(readContext)); });
             // context.HasIVars = false;
         }
-        
-        if (Encoding.ASCII.GetString(entity.Bytes) == "A" && entity.InstanceVariables.Count == 0)
-        {
-            Debug.WriteIf(false,"");
-        }
 
         return entity;
     }

@@ -86,7 +86,7 @@ public class RubyDeserializer
                 if (_objectConversionMap.TryGetValue(e, out var entity))
                     return entity;
 
-                var value = LookupEncoding(e).GetString(((RubySymbol)e).Value);
+                var value = LookupEncoding(e, SerializationHelper.ASCII8BitEncoding)!.GetString(((RubySymbol)e).Value);
 
                 _objectConversionMap[e] = value;
 
@@ -202,7 +202,7 @@ public class RubyDeserializer
         throw new Exception($"Unsupported Ruby object [{e.GetType()}]");
     }
 
-    private Encoding LookupEncoding(AbstractEntity entity)
+    private Encoding? LookupEncoding(AbstractEntity entity, Encoding? defaultEncoding = null)
     {
         foreach (var (key, value) in entity.InstanceVariables)
         {
@@ -225,7 +225,7 @@ public class RubyDeserializer
             }
         }
 
-        return SerializationHelper.ASCII8BitEncoding;
+        return defaultEncoding;
     }
 
     private object DeserializeUserDefinedObject(string objectName, Type type, RubyUserDefined data)

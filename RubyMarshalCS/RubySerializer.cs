@@ -1,9 +1,7 @@
 ﻿using System.Collections;
 using System.Numerics;
-using System.Reflection;
 using System.Text;
 using RubyMarshalCS.Entities;
-using RubyMarshalCS.Enums;
 using RubyMarshalCS.Serialization;
 using RubyMarshalCS.Serialization.Enums;
 using RubyMarshalCS.Settings;
@@ -47,7 +45,7 @@ public class RubySerializer
     private AbstractEntity SerializeValue(object? value, CandidateFlags flags = CandidateFlags.None)
     {
         if (value == null)
-            return _context.Create<RubyNil>();
+            return _context.Nil;
 
         if (value is IDynamicProperty dp)
             value = dp.Get();
@@ -80,7 +78,7 @@ public class RubySerializer
                 return SerializeBigInt(val, flags);
             }
             case TypeCode.Boolean:
-                return (bool)value ? _context.Create<RubyTrue>() : _context.Create<RubyFalse>();
+                return (bool)value ? _context.True : _context.False;
             case TypeCode.Decimal:
             case TypeCode.Single:
             case TypeCode.Double:
@@ -256,17 +254,20 @@ public class RubySerializer
     
     private AbstractEntity SerializeString(string value, Encoding encoding, CandidateFlags flags = CandidateFlags.None)
     {
-        return SerializeString(encoding.GetBytes(value), encoding);
+        return SerializeString(encoding.GetBytes(value), encoding, flags);
     }
 
     private AbstractEntity SerializeString(BinaryString value, CandidateFlags flags = CandidateFlags.None)
     {
-        return SerializeString(value.Bytes, value.Encoding);
+        return SerializeString(value.Bytes, value.Encoding, flags);
     }
 
-    private AbstractEntity SerializeString(byte[] value, Encoding encoding, CandidateFlags flags = CandidateFlags.None)
+    private AbstractEntity SerializeString(byte[] value, Encoding? encoding, CandidateFlags flags = CandidateFlags.None)
     {
-        var asHex = Convert.ToHexString(value);
+        if (flags.HasFlag(CandidateFlags.Compressed))
+            value = RubyDeflate.Deflate(value);
+            
+        var asHex = Convert.ToHexString(value) + (encoding?.ToString() ?? "");
 
         if (_serializedStrings.TryGetValue(asHex, out var s))
             return s;
@@ -279,26 +280,31 @@ public class RubySerializer
 
         AbstractEntity? encodingValue = null;
 
-        switch (encoding.CodePage)
+        if (encoding != null)
         {
-            case 1200:
-                encodingValue = SerializeString("UTF-16LE");
-                break;
-            case 1201:
-                encodingValue = SerializeString("UTF-16BE");
-                break;
-            case 1252:
-                // ASCII-8bit
-                break;
-            case 20127:
-                encodingValue = _context.Create<RubyFalse>();
-                break;
-            case 28591:
-                encodingValue = SerializeString("ISO-8859-1");
-                break;
-            case 65001:
-                encodingValue = _context.Create<RubyTrue>();
-                break;
+            switch (encoding.CodePage)
+            {
+                case 1200:
+                    encodingValue = SerializeString("UTF-16LE");
+                    break;
+                case 1201:
+                    encodingValue = SerializeString("UTF-16BE");
+                    break;
+                case 1252:
+                    encodingValue = SerializeString("ASCII-8BIT");
+                    break;
+                case 20127:
+                    encodingValue = _context.False;
+                    break;
+                case 28591:
+                    encodingValue = SerializeString("ISO-8859-1");
+                    break;
+                case 65001:
+                    encodingValue = _context.True;
+                    break;
+                default:
+                    throw new Exception("Unknown encoding code page: " + encoding.CodePage);
+            }
         }
 
         if (encodingValue != null)

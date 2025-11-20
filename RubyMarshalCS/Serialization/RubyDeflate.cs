@@ -1,63 +1,32 @@
 ﻿using System.IO.Compression;
+using ZLibDotNet;
 
 namespace RubyMarshalCS.Serialization;
 
 public static class RubyDeflate
 {
+    private static ZLib _zlib = new();
+    
+    public static byte[] Deflate(byte[] data, int level = ZLib.Z_DEFAULT_COMPRESSION)
+    {
+        var bound = _zlib.CompressBound((uint)data.Length);
+
+        var compressed = new byte[bound];
+
+        var compressResult = _zlib.Compress(compressed, out var compressedLen, data, data.Length, level);
+        if (compressResult != ZLib.Z_OK)
+            throw new Exception($"Failed to deflate: {compressResult}");
+
+        return compressed.Take(compressedLen).ToArray();
+    }
+
     public static byte[] Inflate(byte[] data)
     {
-        if (data.Length < 6)
-            return Array.Empty<byte>();
+        using MemoryStream compressedStream = new(data);
+        using MemoryStream uncompressedStream = new();
+        using (ZLibStream inflateStream = new(compressedStream, CompressionMode.Decompress))
+            inflateStream.CopyTo(uncompressedStream);
 
-        using var deflated = new MemoryStream(data.Skip(2).Take(data.Length - 6).ToArray());
-        using var inflated = new MemoryStream();
-
-        using var decompressor = new DeflateStream(deflated, CompressionMode.Decompress);
-
-        decompressor.CopyTo(inflated);
-
-        return inflated.GetTrimmedBuffer();
-    }
-
-    public static byte[] Deflate(byte[] data, CompressionLevel level = CompressionLevel.Fastest)
-    {
-        using var inflated = new MemoryStream();
-
-        using (var compressor = new DeflateStream(inflated, level, true))
-        {
-            compressor.Write(data);            
-        }
-
-        var compressedData = new byte[inflated.Length];
-        inflated.Seek(0, SeekOrigin.Begin);
-        inflated.Read(compressedData, 0, compressedData.Length);
-
-        List<byte> output = new(compressedData.Length + 2 + 4)
-        {
-            120, 156
-        };
-
-        output.AddRange(compressedData);
-
-        var adler32 = BitConverter.GetBytes(Adler32(data));
-        
-        output.AddRange(BitConverter.IsLittleEndian ? adler32.Reverse() : adler32);
-        
-        return output.ToArray();
-    }
-
-    public static uint Adler32(byte[] data)
-    {
-        uint a = 1, b = 0;
-
-        const uint modAdler = 65521;
-
-        foreach (var t in data)
-        {
-            a = (a + t) % modAdler;
-            b = (b + a) % modAdler;
-        }
-
-        return (b << 16) | a;
+        return uncompressedStream.ToArray();
     }
 }

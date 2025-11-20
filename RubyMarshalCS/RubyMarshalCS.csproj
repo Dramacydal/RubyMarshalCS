@@ -10,4 +10,8 @@
         <LangVersion>default</LangVersion>
     </PropertyGroup>
 
+    <ItemGroup>
+      <PackageReference Include="ZLibDotNet" Version="0.1.1" />
+    </ItemGroup>
+
 </Project>

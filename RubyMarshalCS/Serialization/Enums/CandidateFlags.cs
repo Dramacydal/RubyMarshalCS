@@ -8,6 +8,7 @@ public enum CandidateFlags: byte
     Out = 2,
     Dynamic = 4,
     Character = 8,
+    Compressed = 16,
 
     InOut = In | Out,
 }
