@@ -10,5 +10,5 @@ public interface IRubyCustomConverter
 
     public object Deserialize(AbstractEntity value, RubyDeserializer deserializer);
     
-    object Cast(object o);
+    object? Cast(object? o);
 }

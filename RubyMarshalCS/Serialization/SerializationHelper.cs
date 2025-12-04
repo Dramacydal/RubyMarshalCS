@@ -408,13 +408,13 @@ public class SerializationHelper
 
     public static object? AssignmentConversion(Type t, object? o, bool allowDynamic)
     {
-        if (o == null)
-            return null;
-        
         var converter = GetCustomConverter(t);
         if (converter != null)
             return converter.Cast(o);
 
+        if (o == null)
+            return null;
+        
         if (typeof(IDynamicProperty).IsAssignableFrom(t))
         {
             var dynamicInstance = (IDynamicProperty)Activator.CreateInstance(t)!;
