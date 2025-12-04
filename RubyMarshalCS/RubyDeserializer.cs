@@ -1,6 +1,4 @@
 ﻿using System.Collections;
-using System.Diagnostics;
-using System.Reflection;
 using System.Text;
 using RubyMarshalCS.Entities;
 using RubyMarshalCS.Enums;
@@ -17,16 +15,19 @@ public class RubyDeserializer
 
     private readonly Dictionary<object, object> _objectConversionMap = new();
 
-    private RubyDeserializer(DeserializationSettings? settings = null)
+    public RubyDeserializer(DeserializationSettings? settings = null)
     {
         _settings = settings ?? new();
     }
 
-    public static T? Deserialize<T>(AbstractEntity data, DeserializationSettings? settings = null)
+    public T? Deserialize<T>(AbstractEntity data)
     {
-        var instance = new RubyDeserializer(settings);
+        var customConverter = SerializationHelper.GetCustomConverter(typeof(T));
+        if (customConverter != null)
+            return (T?)customConverter.Deserialize(data, this);
 
-        return (T?)SerializationHelper.AssignmentConversion(typeof(T), instance.DeserializeEntity(data), typeof(T) == typeof(object));
+        return (T?)SerializationHelper.AssignmentConversion(typeof(T), DeserializeEntity(data),
+            typeof(T) == typeof(object));
     }
 
     private object DeserializeObject(Type type, RubyObject data)

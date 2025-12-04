@@ -24,22 +24,15 @@ public class RubySerializer
     private readonly Dictionary<string, AbstractEntity> _serializedStrings = new();
     private readonly Dictionary<string, AbstractEntity> _serializedSymbols = new();
 
-    private RubySerializer(SerializationSettings? settings = null)
+    public RubySerializer(SerializationSettings? settings = null)
     {
         _context = new SerializationContext();
         _settings = settings ?? new();
     }
 
-    public static AbstractEntity Serialize<T>(T? value, SerializationSettings? settings = null)
+    public AbstractEntity Serialize(object? value)
     {
-        var instance = new RubySerializer(settings);
-
-        return instance.SerializeValue(value);
-    }
-
-    public static AbstractEntity Serialize(object? value, SerializationSettings? settings = null)
-    {
-        return Serialize<object>(value, settings);
+        return SerializeValue(value);
     }
 
     private AbstractEntity SerializeValue(object? value, CandidateFlags flags = CandidateFlags.None)
@@ -98,9 +91,9 @@ public class RubySerializer
         if (valueType == typeof(BigInteger))
             return SerializeBigInt((BigInteger)value, flags);
 
-        var customConverter = SerializationHelper.GetBackConverter(value);
+        var customConverter = SerializationHelper.GetCustomConverter(value.GetType());
         if (customConverter != null)
-            return SerializeValue(customConverter.ConvertBack(value), flags);
+            return customConverter.Serialize(value, this);
         
         if (typeof(IList).IsAssignableFrom(valueType))
             return SerializeArray((IList)value, flags);

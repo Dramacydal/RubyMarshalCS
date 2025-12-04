@@ -7,22 +7,22 @@ public static class RubyMarshal
 {
     public static T? Load<T>(byte[] bytes, DeserializationSettings? settings = null)
     {
-        return RubyDeserializer.Deserialize<T>(Load(bytes, settings), settings);
+        return new RubyDeserializer(settings).Deserialize<T>(Load(bytes, settings));
     }
 
     public static T? Load<T>(string path, DeserializationSettings? settings = null)
     {
-        return RubyDeserializer.Deserialize<T>(Load(path, settings), settings);
+        return new RubyDeserializer(settings).Deserialize<T>(Load(path, settings));
     }
 
     public static T? Load<T>(Stream stream, DeserializationSettings? settings = null)
     {
-        return RubyDeserializer.Deserialize<T>(Load(stream, settings), settings);
+        return new RubyDeserializer(settings).Deserialize<T>(Load(stream, settings));
     }
 
     public static T? Load<T>(BinaryReader reader, DeserializationSettings? settings = null)
     {
-        return RubyDeserializer.Deserialize<T>(Load(reader, settings), settings);
+        return new RubyDeserializer(settings).Deserialize<T>(Load(reader, settings));
     }
 
     public static AbstractEntity Load(byte[] bytes, DeserializationSettings? settings = null)
@@ -51,30 +51,30 @@ public static class RubyMarshal
         return rr.Read();
     }
 
-    public static void Dump<T>(string path, T? obj, SerializationSettings? settings = null)
+    public static void Dump(string path, object? obj, SerializationSettings? settings = null)
     {
-        var entity = RubySerializer.Serialize(obj, settings);
+        var entity = new RubySerializer(settings).Serialize(obj);
         
         Dump(path, entity);
     }
 
-    public static void Dump<T>(Stream stream, T? obj, SerializationSettings? settings = null)
+    public static void Dump(Stream stream, object? obj, SerializationSettings? settings = null)
     {
-        var entity = RubySerializer.Serialize(obj, settings);
+        var entity = new RubySerializer(settings).Serialize(obj);
         
         Dump(stream, entity);
     }
     
-    public static void Dump<T>(BinaryWriter writer, T? obj, SerializationSettings? settings = null)
+    public static void Dump(BinaryWriter writer, object? obj, SerializationSettings? settings = null)
     {
-        var entity = RubySerializer.Serialize(obj, settings);
+        var entity = new RubySerializer(settings).Serialize(obj);
         
         Dump(writer, entity);
     }
 
-    public static byte[] Dump<T>(T? obj, SerializationSettings? settings = null)
+    public static byte[] Dump(object? obj, SerializationSettings? settings = null)
     {
-        var entity = RubySerializer.Serialize(obj, settings);
+        var entity = new RubySerializer(settings).Serialize(obj);
         
         return Dump(entity);
     }

@@ -57,7 +57,7 @@ public class SerializationHelper
                 var rus = (RubyUserSerializerAttribute)attr;
                 RegisterUserObjectSerializer(t, rus.Type, rus.ContextTag);
             }
-            else if (attr.GetType() == typeof(CustomConverterAttribute))
+            else if (attr.GetType() == typeof(RubyCustomConverterAttribute))
                 RegisterCustomConverter(t);
         }
     }
@@ -138,10 +138,15 @@ public class SerializationHelper
 
     private void RegisterCustomConverter(Type type)
     {
-        if (!typeof(ICustomConverter).IsAssignableFrom(type))
+        if (!typeof(IRubyCustomConverter).IsAssignableFrom(type))
             throw new Exception($"Type {type} must implement ICustomConverter attribute");
 
-        _customConverters.Add((ICustomConverter)Activator.CreateInstance(type)!);
+        RegisterCustomConverter((IRubyCustomConverter)Activator.CreateInstance(type)!);
+    }
+
+    private void RegisterCustomConverter(IRubyCustomConverter converter)
+    {
+        _customConverters.Add(converter);
     }
 
     private static readonly Dictionary<Type, TypeCandidateInfo> _infos = new();
@@ -155,7 +160,7 @@ public class SerializationHelper
 
     private readonly Dictionary<string, Dictionary<Type, Type>> _userSerializersByType = new();
 
-    private readonly List<ICustomConverter> _customConverters = new();
+    private readonly List<IRubyCustomConverter> _customConverters = new();
 
     public static Candidate? GetFieldCandidate(Type type, string fieldName)
     {
@@ -388,10 +393,6 @@ public class SerializationHelper
         if (type.IsInstanceOfType(o))
             return o;
         
-        var converter = GetCustomConverter(o, type);
-        if (converter != null)
-            return converter.Convert(o, type);
-
         var dataParam = Expression.Parameter(typeof(object), "data");
         var body = Expression.Block(Expression.Convert(Expression.Convert(dataParam, o.GetType()), type));
 
@@ -400,20 +401,19 @@ public class SerializationHelper
         return run.DynamicInvoke(o)!;
     }
 
-    private static ICustomConverter? GetCustomConverter(object o, Type type)
+    public static IRubyCustomConverter? GetCustomConverter(Type type)
     {
-        return GetInstance()._customConverters.FirstOrDefault(converter => converter.CanConvert(o, type));
-    }
-
-    public static ICustomConverter? GetBackConverter(object o)
-    {
-        return GetInstance()._customConverters.FirstOrDefault(converter => converter.CanConvertBack(o));
+        return GetInstance()._customConverters.FirstOrDefault(converter => converter.CanConvert(type));
     }
 
     public static object? AssignmentConversion(Type t, object? o, bool allowDynamic)
     {
         if (o == null)
             return null;
+        
+        var converter = GetCustomConverter(t);
+        if (converter != null)
+            return converter.Cast(o);
 
         if (typeof(IDynamicProperty).IsAssignableFrom(t))
         {
