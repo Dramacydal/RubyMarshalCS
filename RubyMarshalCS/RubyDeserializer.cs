@@ -2,6 +2,7 @@
 using System.Text;
 using RubyMarshalCS.Entities;
 using RubyMarshalCS.Enums;
+using RubyMarshalCS.Exceptions;
 using RubyMarshalCS.Serialization;
 using RubyMarshalCS.Serialization.Enums;
 using RubyMarshalCS.Settings;
@@ -52,10 +53,30 @@ public class RubyDeserializer
             }
             else
             {
-                if (!_settings.AllowUnmappedFields)
-                    throw new Exception($"Object {type} has unmapped property \"{fieldName}\"");
+                var handling = _settings.MissingMemberHandling;
 
-                StoreToExtensionData(info, obj, fieldName, DeserializeEntity(value));
+                var deserializedValue = DeserializeEntity(value);
+
+                if (handling == MissingMemberHandling.Error)
+                {
+                    var args = new MissingMemberArgs
+                    {
+                        RubyObject = data,
+                        Object = obj,
+                        Member = new(){ Key = fieldName, Value = deserializedValue},
+                    };
+
+                    _settings.MissingMember?.Invoke(this, args);
+
+                    handling = args.Action;
+
+                    if (handling == MissingMemberHandling.Error)
+                        throw new DeserializationException(
+                            $"Object {data.GetRealClassName()} has unmapped property \"{fieldName}\"");
+                }
+
+                if (handling == MissingMemberHandling.Store)
+                    StoreToExtensionData(info, obj, fieldName, deserializedValue);
             }
         }
 
@@ -72,7 +93,7 @@ public class RubyDeserializer
             if (extensionData != null)
                 ((Dictionary<string, object?>)extensionData)[fieldName] = value;
         }
-        else if (_settings.EnsureExtensionFieldPresent)
+        else
             throw new Exception($"Ruby object type {extensionCandidate.Type} does not have extension data field");
     }
 
@@ -157,12 +178,27 @@ public class RubyDeserializer
 
                 var objectType = SerializationHelper.GetTypeForRubyObjectTypeName(objectName, _settings.ContextTag);
                 if (objectType == null)
-                    if (_settings.AllowGenericUserObjects)
-                        objectType = typeof(GenericUserObject);
-                    else
-                        throw new Exception($"Unsupported user-defined object [{objectName}]");
+                {
+                    var handling = _settings.UndefinedUserObjectHandling;
+                    if (handling == UndefinedUserObjectHandling.Error)
+                    {
+                        var args = new UndefinedUserObjectArgs
+                        {
+                            RubyUserObject = ru,
+                        };
+                        _settings.UndefinedUserObject?.Invoke(this, args);
+                        handling = args.Action;
 
-                var c = DeserializeUserDefinedObject(objectName, objectType, ru);
+                        if (handling == UndefinedUserObjectHandling.Error)
+                            throw new Exception($"Unsupported user-defined object [{objectName}]");
+                        if (handling == UndefinedUserObjectHandling.Store)
+                            objectType = typeof(GenericUserObject);
+                        else if (handling == UndefinedUserObjectHandling.Ignore)
+                            return null;
+                    }
+                }
+
+                var c = DeserializeUserDefinedObject(objectName, objectType!, ru);
 
                 _objectConversionMap[e] = c;
 
@@ -178,9 +214,29 @@ public class RubyDeserializer
                 var objectName = ro.GetRealClassName();
                 var objectType = SerializationHelper.GetTypeForRubyObjectTypeName(objectName, _settings.ContextTag);
                 if (objectType == null)
-                    throw new Exception($"Unsupported object [{objectName}]");
+                {
+                    var handling = _settings.UndefinedObjectHandling; 
+                    if (handling == UndefinedObjectHandling.Error)
+                    {
+                        var args = new UndefinedObjectArgs
+                        {
+                            RubyObject = ro,
+                        };
+                        
+                        _settings.UndefinedObject?.Invoke(this, args);
+                        handling = args.Action;
+                    }
+                    
+                    switch (handling)
+                    {
+                        case UndefinedObjectHandling.Error:
+                            throw new Exception($"Unsupported object [{objectName}]");
+                        case UndefinedObjectHandling.Ignore:
+                            return null;
+                    }
+                }
 
-                var c = DeserializeObject(objectType, ro);
+                var c = DeserializeObject(objectType!, ro);
 
                 _objectConversionMap[e] = c;
 
