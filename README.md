@@ -13,7 +13,7 @@ For RPG Maker VX / VX Ace examples see [RPGMaker.md](RPGMaker.md).
 - Deserialize Ruby Marshal binary data into strongly-typed C# objects
 - Serialize C# objects back into valid Ruby Marshal binary data
 - Attribute-based mapping between C# classes and Ruby object types
-- Custom serializers for `UserDefined` Ruby objects (e.g. `Table`, `Color`, `Tone`)
+- Custom serializers for `UserDefined` Ruby objects
 - Custom converters for full control over serialization/deserialization
 - Configurable handling of missing members, unknown object types, and object links
 - Support for all Ruby Marshal types: nil, bool, int, bignum, float, string, symbol, array, hash, object, struct, regex, and more
