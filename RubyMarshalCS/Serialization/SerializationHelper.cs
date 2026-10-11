@@ -179,7 +179,13 @@ public class SerializationHelper
                     throw new Exception(
                         $"Type [{member.DeclaringType.Name}] has duplicate property [{propertyName}]");
 
-                info.FieldCandidates[propertyName] = new(member, ra.Flags);
+                var converterAttr = member.GetCustomAttribute<RubyPropertyConverterAttribute>();
+                info.FieldCandidates[propertyName] = new(member, ra.Flags)
+                {
+                    Converter = converterAttr != null
+                        ? (IRubyPropertyConverter)Activator.CreateInstance(converterAttr.ConverterType)!
+                        : null
+                };
             }
 
             if (attr is RubyExtensionDataAttribute re)

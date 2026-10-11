@@ -1,5 +1,6 @@
 ﻿using System.Reflection;
 using RubyMarshalCS.Serialization.Enums;
+using RubyMarshalCS.Serialization.Interfaces;
 
 namespace RubyMarshalCS.Serialization;
 
@@ -18,6 +19,7 @@ public class Candidate
 
     public MemberInfo Member { get; }
     public CandidateFlags Flags { get; }
+    public IRubyPropertyConverter? Converter { get; init; }
 
     public override string ToString() => Member.Name;
 

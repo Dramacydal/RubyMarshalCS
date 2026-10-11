@@ -160,6 +160,8 @@ public class RubySerializer
                 continue;
 
             var fieldValue = fieldCandidate.GetValue(value);
+            if (fieldCandidate.Converter != null)
+                fieldValue = fieldCandidate.Converter.ToRuby(fieldValue, value);
 
             ro.Fields.Add(new(SerializeSymbol(fieldName), SerializeValue(fieldValue, fieldCandidate.Flags)));
         }

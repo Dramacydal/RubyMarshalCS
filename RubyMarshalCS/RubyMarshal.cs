@@ -104,6 +104,6 @@ public static class RubyMarshal
 
         Dump(stream, entity);
 
-        return stream.GetTrimmedBuffer();
+        return stream.ToArray();
     }
 }
