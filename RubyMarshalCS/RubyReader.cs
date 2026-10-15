@@ -104,7 +104,7 @@ public class RubyReader
 
     private AbstractEntity ReadUClass(ReaderContext context)
     {
-        var className = context.WithSubContext(false, r_symbol);
+        var className = r_symbol(Plain(context));
 
         var entity = r_object(context);
         entity.UserClass = className;
@@ -115,7 +115,7 @@ public class RubyReader
     private AbstractEntity ReadData(ReaderContext context)
     {
         var entity = _serializationContext.Create<RubyData>();
-        entity.ClassName = context.WithSubContext(false, r_symbol);
+        entity.ClassName = r_symbol(Plain(context));
 
         _serializationContext.RememberObject(entity);
 
@@ -127,14 +127,14 @@ public class RubyReader
     private AbstractEntity ReadStruct(ReaderContext context)
     {
         var entity = _serializationContext.Create<RubyStruct>();
-        entity.Name = context.WithSubContext(false, r_symbol);
+        entity.Name = r_symbol(Plain(context));
 
         _serializationContext.RememberObject(entity);
 
         var fieldsCount = _reader.ReadFixNum();
         for (var i = 0; i < fieldsCount; ++i)
         {
-            var key = context.WithSubContext(false, r_symbol);
+            var key = r_symbol(Plain(context));
             var value = r_object(context);
 
             entity.Fields.Add(new(key, value));
@@ -174,7 +174,7 @@ public class RubyReader
 
         if (context.HasIVars)
         {
-            context.WithSubContext(false, readContext => { entity.InstanceVariables.AddRange(r_ivar(readContext)); });
+            r_ivar(Plain(context), entity.InstanceVariables);
             // context.HasIVars = false;
         }
 
@@ -195,7 +195,7 @@ public class RubyReader
     {
         modules ??= new();
 
-        var moduleName = context.WithSubContext(false, r_symbol);
+        var moduleName = r_symbol(Plain(context));
         modules.Add(moduleName);
 
         var code = (RubyCodes)_reader.ReadByte();
@@ -223,7 +223,7 @@ public class RubyReader
     private AbstractEntity ReadUserMarshal(ReaderContext context)
     {
         var entity = _serializationContext.Create<RubyUserMarshal>();
-        entity.ClassName = context.WithSubContext(false, r_symbol);
+        entity.ClassName = r_symbol(Plain(context));
         
         _serializationContext.RememberObject(entity);
 
@@ -235,14 +235,14 @@ public class RubyReader
     private AbstractEntity ReadUserDefined(ReaderContext context)
     {
         var entity = _serializationContext.Create<RubyUserDefined>();
-        entity.ClassName = context.WithSubContext(false, r_symbol);
+        entity.ClassName = r_symbol(Plain(context));
         entity.Bytes = _reader.ReadByteSequence();
 
         _serializationContext.RememberObject(entity);
 
         if (context.HasIVars)
         {
-            context.WithSubContext(false, readContext => { entity.InstanceVariables.AddRange(r_ivar(readContext)); });
+            r_ivar(Plain(context), entity.InstanceVariables);
             // context.HasIVars = false;
         }
 
@@ -306,7 +306,7 @@ public class RubyReader
 
         if (context.HasIVars)
         {
-            context.WithSubContext(false, readContext => { entity.InstanceVariables.AddRange(r_ivar(readContext)); });
+            r_ivar(Plain(context), entity.InstanceVariables);
             // context.HasIVars = false;
         }
 
@@ -342,7 +342,7 @@ public class RubyReader
 
         if (context.HasIVars)
         {
-            context.WithSubContext(false, readContext => { entity.InstanceVariables.AddRange(r_ivar(readContext)); });
+            r_ivar(Plain(context), entity.InstanceVariables);
             // context.HasIVars = false;
         }
 
@@ -358,7 +358,7 @@ public class RubyReader
             {
                 context.WithSubContext(false, marshalReadContext =>
                 {
-                    entity.InstanceVariables.AddRange(r_ivar(marshalReadContext));
+                    r_ivar(marshalReadContext, entity.InstanceVariables);
 
                     return entity;
                 });
@@ -384,14 +384,14 @@ public class RubyReader
 
     private AbstractEntity ReadObject(ReaderContext context)
     {
-        var className = context.WithSubContext(false, r_symbol);
+        var className = r_symbol(Plain(context));
 
         var entity = _serializationContext.Create<RubyObject>();
         entity.ClassName = className;
 
         _serializationContext.RememberObject(entity);
 
-        entity.Fields.AddRange(r_ivar(context));
+        r_ivar(context, entity.Fields);
 
         return entity;
     }
@@ -433,12 +433,13 @@ public class RubyReader
 
     private AbstractEntity r_object(ReaderContext context, bool hasIVar = false)
     {
-        return context.WithSubContext(hasIVar, context.Action);
+        return context.HasIVars == hasIVar ? context.Action(context) : context.WithSubContext(hasIVar, context.Action);
     }
 
-    private List<KeyValuePair<AbstractEntity, AbstractEntity>> r_ivar(ReaderContext context)
+    private static ReaderContext Plain(ReaderContext context) => context.HasIVars ? context.WithoutIVars() : context;
+
+    private void r_ivar(ReaderContext context, List<KeyValuePair<AbstractEntity, AbstractEntity>> ret)
     {
-        List<KeyValuePair<AbstractEntity, AbstractEntity>> ret = new();
 
         var count = _reader.ReadFixNum();
 
@@ -449,7 +450,5 @@ public class RubyReader
 
             ret.Add(new(key, val));
         }
-
-        return ret;
     }
 }

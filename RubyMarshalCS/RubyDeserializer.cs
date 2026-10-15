@@ -261,7 +261,7 @@ public class RubyDeserializer
 
     private Encoding? LookupEncoding(AbstractEntity entity, Encoding? defaultEncoding = null)
     {
-        foreach (var (key, value) in entity.InstanceVariables)
+        foreach (var (key, value) in entity.InstanceVariablesOrEmpty)
         {
             if (key.ResolveIfLink().ToString() == "E")
             {

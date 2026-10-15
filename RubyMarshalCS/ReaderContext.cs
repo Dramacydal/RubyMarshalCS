@@ -17,6 +17,8 @@ public class ReaderContext
         };
     }
 
+    internal ReaderContext WithoutIVars() => MakeSubContext(false);
+
     public AbstractEntity WithSubContext(bool hasIVars, Func<ReaderContext, AbstractEntity> action)
     {
         return action(MakeSubContext(hasIVars));

@@ -201,16 +201,16 @@ public class RubyWriter
 
         _context.RememberSymbol(entity);
 
-        if (entity.InstanceVariables.Count > 0)
+        if (entity.InstanceVariablesOrEmpty.Count > 0)
             _writer.Write((byte)RubyCodes.InstanceVar);
 
         _writer.Write((byte)RubyCodes.Symbol);
         _writer.WriteByteSequence(entity.Value);
 
-        if (entity.InstanceVariables.Count > 0)
+        if (entity.InstanceVariablesOrEmpty.Count > 0)
         {
-            _writer.WriteFixNum(entity.InstanceVariables.Count);
-            foreach (var v in entity.InstanceVariables)
+            _writer.WriteFixNum(entity.InstanceVariablesOrEmpty.Count);
+            foreach (var v in entity.InstanceVariablesOrEmpty)
             {
                 WriteEntity(v.Key);
                 WriteEntity(v.Value);
@@ -243,10 +243,10 @@ public class RubyWriter
 
         _context.RememberObject(entity);
 
-        if (entity.InstanceVariables.Count > 0)
+        if (entity.InstanceVariablesOrEmpty.Count > 0)
             _writer.Write((byte)RubyCodes.InstanceVar);
 
-        foreach (var t in entity.Modules)
+        foreach (var t in entity.ModulesOrEmpty)
         {
             _writer.Write((byte)RubyCodes.Extended);
             WriteEntity(t);
@@ -260,10 +260,10 @@ public class RubyWriter
 
         wrapper();
 
-        if (entity.InstanceVariables.Count > 0)
+        if (entity.InstanceVariablesOrEmpty.Count > 0)
         {
-            _writer.WriteFixNum(entity.InstanceVariables.Count);
-            foreach (var v in entity.InstanceVariables)
+            _writer.WriteFixNum(entity.InstanceVariablesOrEmpty.Count);
+            foreach (var v in entity.InstanceVariablesOrEmpty)
             {
                 WriteEntity(v.Key);
                 WriteEntity(v.Value);

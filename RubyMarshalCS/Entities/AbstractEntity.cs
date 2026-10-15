@@ -8,11 +8,15 @@ public abstract class AbstractEntity
 
     public abstract RubyCodes Code { get; }
     
-    public readonly List<AbstractEntity> Modules = new();
+    private List<AbstractEntity>? _modules;
+    public List<AbstractEntity> Modules => _modules ??= new();
+    internal IReadOnlyList<AbstractEntity> ModulesOrEmpty => (IReadOnlyList<AbstractEntity>?)_modules ?? Array.Empty<AbstractEntity>();
 
     public AbstractEntity? UserClass;
 
-    public readonly List<KeyValuePair<AbstractEntity, AbstractEntity>> InstanceVariables = new();
+    private List<KeyValuePair<AbstractEntity, AbstractEntity>>? _ivars;
+    public List<KeyValuePair<AbstractEntity, AbstractEntity>> InstanceVariables => _ivars ??= new();
+    internal IReadOnlyList<KeyValuePair<AbstractEntity, AbstractEntity>> InstanceVariablesOrEmpty => (IReadOnlyList<KeyValuePair<AbstractEntity, AbstractEntity>>?)_ivars ?? Array.Empty<KeyValuePair<AbstractEntity, AbstractEntity>>();
     
     public AbstractEntity ResolveIfLink()
     {
