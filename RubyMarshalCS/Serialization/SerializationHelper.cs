@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
@@ -28,14 +29,19 @@ public class SerializationHelper
         Initialize();
     }
 
-    private static SerializationHelper? _instance;
+    private static volatile SerializationHelper? _instance;
 
+    private static readonly Lock InstanceLock = new();
+
+    /// <summary>The one instance, made on first use; a call from another thread waits until it is ready.</summary>
     private static SerializationHelper GetInstance()
     {
-        if (_instance == null)
-            _instance = new SerializationHelper();
+        var instance = _instance;
+        if (instance != null)
+            return instance;
 
-        return _instance;
+        lock (InstanceLock)
+            return _instance ??= new SerializationHelper();
     }
 
     private void Initialize()
@@ -80,17 +86,17 @@ public class SerializationHelper
 
     private void RegisterRubyObject(string name, Type type, string tag)
     {
-        if (!_rubyObjectTypeNamesToTypeMap.ContainsKey(tag))
+        lock (_registryLock)
         {
-            _rubyObjectTypeNamesToTypeMap[tag] = new();
-            _typeToRubyObjectMap[tag] = new();
+            var names = _rubyObjectTypeNamesToTypeMap.GetOrAdd(tag, _ => new());
+            var types = _typeToRubyObjectMap.GetOrAdd(tag, _ => new());
+
+            if (names.ContainsKey(name))
+                throw new Exception($"Ruby object [{name}] by tag \"{tag}\" already registered");
+
+            names[name] = type;
+            types[type] = name;
         }
-
-        if (_rubyObjectTypeNamesToTypeMap[tag].ContainsKey(name))
-            throw new Exception($"Ruby object [{name}] by tag \"{tag}\" already registered");
-
-        _rubyObjectTypeNamesToTypeMap[tag][name] = type;
-        _typeToRubyObjectMap[tag][type] = name;
     }
 
     public static void RegisterUserObjectSerializer(Type serializer)
@@ -109,12 +115,20 @@ public class SerializationHelper
 
     public void RegisterUserObjectSerializer(Type type, Type serializer, string tag)
     {
-        if (!_userSerializersByType.ContainsKey(tag))
-            _userSerializersByType[tag] = new();
+        lock (_registryLock)
+        {
+            var serializers = _userSerializersByType.GetOrAdd(tag, _ => new());
+            if (serializers.ContainsKey(type))
+                throw new Exception($"User object serializer for type [{type}] by tag \"{tag}\" already registered");
 
-        if (_userSerializersByType[tag].ContainsKey(type))
-            throw new Exception($"User object serializer for type [{type}] by tag \"{tag}\" already registered");
+            CheckUserSerializer(serializer);
 
+            serializers[type] = serializer;
+        }
+    }
+
+    private static void CheckUserSerializer(Type serializer)
+    {
         var found = false;
         foreach (var i in serializer.GetInterfaces())
         {
@@ -132,8 +146,6 @@ public class SerializationHelper
         if (!found)
             throw new Exception(
                 $"User object serializer [{serializer}] does not implement ICustomRubySerializer<> interface");
-
-        _userSerializersByType[tag][type] = serializer;
     }
 
     private void RegisterCustomConverter(Type type)
@@ -146,21 +158,29 @@ public class SerializationHelper
 
     private void RegisterCustomConverter(IRubyCustomConverter converter)
     {
-        _customConverters.Add(converter);
+        lock (_registryLock)
+            _customConverters = [.._customConverters, converter];
     }
 
-    private static readonly Dictionary<Type, TypeCandidateInfo> _infos = new();
+    // Everything below is read by any number of threads that deserialize or serialize at the same time. The caches only grow
+    // (an entry is made once and never changes); the registries are written under _registryLock and read without it.
 
-    private static readonly Dictionary<Type, Type?> _elementTypeForListMap = new();
+    // a Lazy makes sure that the info of a type is built once, not by every thread that asks for it at the same moment
+    private static readonly ConcurrentDictionary<Type, Lazy<TypeCandidateInfo>> _infos = new();
 
-    private static readonly Dictionary<Type, Tuple<Type, Type>?> _elemenTypeForDictionaryMap = new();
+    private static readonly ConcurrentDictionary<Type, Type?> _elementTypeForListMap = new();
 
-    private readonly Dictionary<string, Dictionary<string, Type>> _rubyObjectTypeNamesToTypeMap = new();
-    private readonly Dictionary<string, Dictionary<Type, string>> _typeToRubyObjectMap = new();
+    private static readonly ConcurrentDictionary<Type, Tuple<Type, Type>?> _elemenTypeForDictionaryMap = new();
 
-    private readonly Dictionary<string, Dictionary<Type, Type>> _userSerializersByType = new();
+    private readonly Lock _registryLock = new();
 
-    private readonly List<IRubyCustomConverter> _customConverters = new();
+    private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, Type>> _rubyObjectTypeNamesToTypeMap = new();
+    private readonly ConcurrentDictionary<string, ConcurrentDictionary<Type, string>> _typeToRubyObjectMap = new();
+
+    private readonly ConcurrentDictionary<string, ConcurrentDictionary<Type, Type>> _userSerializersByType = new();
+
+    // replaced as a whole when a converter is added, so a reader goes through a list that does not change
+    private volatile IRubyCustomConverter[] _customConverters = [];
 
     public static Candidate? GetFieldCandidate(Type type, string fieldName)
     {
@@ -223,9 +243,11 @@ public class SerializationHelper
 
     public static TypeCandidateInfo GetTypeCandidateInfo(Type type)
     {
-        if (_infos.TryGetValue(type, out var candidateInfo))
-            return candidateInfo;
+        return _infos.GetOrAdd(type, t => new Lazy<TypeCandidateInfo>(() => BuildTypeCandidateInfo(t))).Value;
+    }
 
+    private static TypeCandidateInfo BuildTypeCandidateInfo(Type type)
+    {
         TypeCandidateInfo info = new(type);
 
         foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
@@ -236,8 +258,6 @@ public class SerializationHelper
 
         foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
             AttributeChecker(method, info);
-
-        _infos[type] = info;
 
         return info;
     }
@@ -281,32 +301,24 @@ public class SerializationHelper
         if (!typeof(IList).IsAssignableFrom(type))
             throw new Exception($"Type [{type}] does not implement IList");
 
-        Type? result = null;
-        if (!_elementTypeForListMap.ContainsKey(type))
-        {
-            for (;;)
-            {
-                var g = SearchTypeForGenericList(type);
-                if (g != null)
-                {
-                    result = g;
-                    break;
-                }
-
-                type = type.BaseType;
-                if (type == null)
-                    break;
-            }
-
-            _elementTypeForListMap[type!] = result;
-        }
-        else
-            result = _elementTypeForListMap[type];
-
+        var result = _elementTypeForListMap.GetOrAdd(type, FindElementTypeForList);
         if (result != null)
             return result;
 
         throw new Exception($"Failed to determine type of generic list [{type}]");
+    }
+
+    // the type itself, then its base types, until one of them is a generic list
+    private static Type? FindElementTypeForList(Type? type)
+    {
+        for (; type != null; type = type.BaseType)
+        {
+            var g = SearchTypeForGenericList(type);
+            if (g != null)
+                return g;
+        }
+
+        return null;
     }
 
     private static Tuple<Type, Type> SearchElementTypesForDictionary(Type type)
@@ -314,32 +326,24 @@ public class SerializationHelper
         if (!typeof(IDictionary).IsAssignableFrom(type))
             throw new Exception($"Type [{type}] does not implement IDictionary");
 
-        Tuple<Type, Type>? result = null;
-        if (!_elemenTypeForDictionaryMap.ContainsKey(type))
-        {
-            for (;;)
-            {
-                var g = SearchTypesForGenericDictionary(type);
-                if (g != null)
-                {
-                    result = g;
-                    break;
-                }
-
-                type = type.BaseType;
-                if (type == null)
-                    break;
-            }
-
-            _elemenTypeForDictionaryMap[type!] = result;
-        }
-        else
-            result = _elemenTypeForDictionaryMap[type];
-
+        var result = _elemenTypeForDictionaryMap.GetOrAdd(type, FindElementTypesForDictionary);
         if (result != null)
             return result;
 
         throw new Exception($"Failed to determine type of generic dictionary [{type}]");
+    }
+
+    // the type itself, then its base types, until one of them is a generic dictionary
+    private static Tuple<Type, Type>? FindElementTypesForDictionary(Type? type)
+    {
+        for (; type != null; type = type.BaseType)
+        {
+            var g = SearchTypesForGenericDictionary(type);
+            if (g != null)
+                return g;
+        }
+
+        return null;
     }
 
     private static object ManualCast(Type type, object o)
@@ -514,22 +518,28 @@ public class SerializationHelper
 
     public static Type? GetTypeForRubyObjectTypeName(string rubyObjectTypeName, string tag)
     {
-        return GetInstance()._rubyObjectTypeNamesToTypeMap.FirstOrDefault(_ => _.Key == tag).Value?
-            .FirstOrDefault(_ => _.Key == rubyObjectTypeName).Value;
+        return GetInstance()._rubyObjectTypeNamesToTypeMap.TryGetValue(tag, out var names) &&
+               names.TryGetValue(rubyObjectTypeName, out var type)
+            ? type
+            : null;
     }
 
     public static string? GetRubyObjectTypeNameForType(Type type, string tag)
     {
-        return GetInstance()._rubyObjectTypeNamesToTypeMap.FirstOrDefault(_ => _.Key == tag).Value
-            ?.FirstOrDefault(_ => _.Value == type).Key;
+        return GetInstance()._typeToRubyObjectMap.TryGetValue(tag, out var names) && names.TryGetValue(type, out var name)
+            ? name
+            : null;
     }
 
     public static Type? GetUserSerializerByType(Type type, string tag)
     {
-        return GetInstance()._userSerializersByType.FirstOrDefault(_ => _.Key == tag).Value
-            ?.FirstOrDefault(_ => _.Key == type).Value;
+        return GetInstance()._userSerializersByType.TryGetValue(tag, out var serializers) &&
+               serializers.TryGetValue(type, out var serializer)
+            ? serializer
+            : null;
     }
 
-    public static Dictionary<string, Type> GetRegisteredRubyObjects(string tag) => GetInstance()
-        ._rubyObjectTypeNamesToTypeMap.FirstOrDefault(_ => _.Key == tag).Value;
+    /// <summary>The Ruby objects registered by the tag, name to type, as they are now (a copy); null when there are none.</summary>
+    public static Dictionary<string, Type>? GetRegisteredRubyObjects(string tag) =>
+        GetInstance()._rubyObjectTypeNamesToTypeMap.TryGetValue(tag, out var names) ? new Dictionary<string, Type>(names) : null;
 }
