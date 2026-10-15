@@ -488,3 +488,9 @@ static void RegisterUserObjectSerializer(Type serializer)
 static Candidate? GetFieldCandidate(Type type, string fieldName)
 static IRubyCustomConverter? GetCustomConverter(Type type)
 ```
+
+---
+
+## License
+
+[MIT](LICENSE)
