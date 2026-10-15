@@ -15,6 +15,7 @@ For RPG Maker VX / VX Ace examples see [RPGMaker.md](RPGMaker.md).
 - Attribute-based mapping between C# classes and Ruby object types
 - Custom serializers for `UserDefined` Ruby objects
 - Custom converters for full control over serialization/deserialization
+- Per-property converters for a single field (e.g. a Ruby value stored in another form in C#)
 - Configurable handling of missing members, unknown object types, and object links
 - Support for all Ruby Marshal types: nil, bool, int, bignum, float, string, symbol, array, hash, object, struct, regex, and more
 
@@ -247,6 +248,38 @@ public class MyConverter : IRubyCustomConverter
     public object? Cast(object? o) => o;
 }
 ```
+
+---
+
+## Property Converters
+
+To change how a single property is read and written, without a converter for the whole type, implement `IRubyPropertyConverter` and apply it with `[RubyPropertyConverter]` next to `[RubyProperty]`:
+
+```csharp
+[RubyObject("RPG::Skill")]
+public class Skill
+{
+    [RubyProperty("@id")] public int Id;
+
+    [RubyProperty("@scope")]
+    [RubyPropertyConverter(typeof(ScopeConverter))]
+    public SkillScope Scope;
+}
+
+public class ScopeConverter : IRubyPropertyConverter
+{
+    // Ruby value (after type-level conversion) -> value assigned to the property
+    public object? FromRuby(object? value, object owner) => (SkillScope)Convert.ToInt32(value);
+
+    // property value -> value written to Ruby
+    public object? ToRuby(object? value, object owner) => (int)(SkillScope)value!;
+}
+```
+
+- `owner` is the object that has the property, so a converter can depend on its other fields.
+- The converter class needs a public parameterless constructor; one instance is created per property when the type is registered.
+- On reading, `FromRuby` replaces the default conversion to the property type, so it must return a value assignable to the property. On writing, `ToRuby` runs before the value is serialized.
+- Use it for a property only. For a whole type use [Custom Converters](#custom-converters), and for `UserDefined` objects [Custom User Serializers](#custom-user-serializers).
 
 ---
 
