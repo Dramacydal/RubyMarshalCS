@@ -159,7 +159,12 @@ public class SerializationHelper
     private void RegisterCustomConverter(IRubyCustomConverter converter)
     {
         lock (_registryLock)
+        {
             _customConverters = [.._customConverters, converter];
+
+            // what was found for the types is not right any more; a thread that still has the old cache puts its result there and nowhere else
+            _converterByType = new();
+        }
     }
 
     // Everything below is read by any number of threads that deserialize or serialize at the same time. The caches only grow
@@ -181,6 +186,9 @@ public class SerializationHelper
 
     // replaced as a whole when a converter is added, so a reader goes through a list that does not change
     private volatile IRubyCustomConverter[] _customConverters = [];
+
+    // the converter found for a type (null: there is none): the search is done for every value that is assigned, and a type does not change
+    private volatile ConcurrentDictionary<Type, IRubyCustomConverter?> _converterByType = new();
 
     public static Candidate? GetFieldCandidate(Type type, string fieldName)
     {
@@ -413,7 +421,11 @@ public class SerializationHelper
 
     public static IRubyCustomConverter? GetCustomConverter(Type type)
     {
-        return GetInstance()._customConverters.FirstOrDefault(converter => converter.CanConvert(type));
+        var instance = GetInstance();
+
+        // the array is read after the cache, so a converter added meanwhile is not missed by an entry that is kept
+        return instance._converterByType.GetOrAdd(type,
+            static (t, helper) => helper._customConverters.FirstOrDefault(converter => converter.CanConvert(t)), instance);
     }
 
     public static object? AssignmentConversion(Type t, object? o, bool allowDynamic)
