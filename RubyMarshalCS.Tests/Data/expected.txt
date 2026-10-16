@@ -15,6 +15,7 @@ extended_uclass_string_ivar 395edc499e0f nodes=8
 false e2ca2771fc7c nodes=1
 fixnums 908edfc8bfd8 nodes=17
 floats f37c5ba3a098 nodes=11
+floats_many 3b2deee402ad nodes=518
 hash 37cf0034e427 nodes=16
 hash_default 33d32d71f6dc nodes=9
 hash_default_ivar 4ce2caf5458e nodes=8

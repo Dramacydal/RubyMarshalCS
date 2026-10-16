@@ -74,6 +74,18 @@ public sealed class RubyMarshalTests
         Assert.Equal(digest, description.Digest);
     });
 
+    [Theory]
+    [InlineData("floats")]
+    [InlineData("floats_many")]
+    [InlineData("fixnums")]
+    [InlineData("bignums")]
+    [InlineData("encodings")]
+    public void TheWriterWritesNumbersAndStringsWithTheSameBytesAsRuby(string name)
+    {
+        // not only a value that Ruby reads the same: the very bytes that Ruby writes ("1e100", not "1E+100"; "12", not "12.0")
+        Assert.True(RubyMarshal.Dump(Read(Dump(name))).AsSpan().SequenceEqual(Dump(name)), name);
+    }
+
     // ---- what the generated files are made for, in plain words ----
 
     [Fact]

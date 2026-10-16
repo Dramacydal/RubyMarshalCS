@@ -22,10 +22,16 @@ h_def = Hash.new(5); h_def[1] = 2; h_def[:k] = "v"
 h_proc_free = {1 => {2 => {3 => [4, 5, {6 => 7}]}}}
 mh = MyHash.new; mh[1] = 2
 ms = MyString.new("bar"); ms.instance_variable_set(:@z, 1)
+rng = Random.new(20260416)
+many_floats = [1.0, 12.0, 120.0, 0.0001, 0.00009999, 1e15, 1e16, 1e17, 2.0**62, 5e-324, Float::MAX, Float::MIN, 0.1 + 0.2, -1e-7, 123456789.0, 4.35]
+many_floats += Array.new(300) { (rng.rand - 0.5) * 10.0**rng.rand(-30..30) }
+many_floats += Array.new(100) { rng.rand(1..10**rng.rand(1..20)).to_f }
+many_floats += Array.new(100) { [rng.bytes(8).unpack1("G")].find { |f| f.finite? } || 1.5 }
 cases = {
   "nil" => nil, "true" => true, "false" => false,
   "fixnums" => [0, 1, -1, 122, 123, -123, -124, 255, 256, 65535, 65536, 2**30 - 1, -(2**30), 2**31, -(2**31)],
   "bignums" => [2**40, -(2**40), 2**64, -(2**100), 2**200 + 12345],
+  "floats_many" => many_floats,
   "floats" => [1.5, -0.0, 0.0, Float::INFINITY, -Float::INFINITY, Float::NAN, 1e100, 1.0e-100, 3.141592653589793],
   "symbols" => sym_list, "symbol_non_ascii" => [:"тест", :"日本語", :"a b"],
   "strings" => ["", "abc", "тест", "日本語", shared, shared, "a" * 1000],

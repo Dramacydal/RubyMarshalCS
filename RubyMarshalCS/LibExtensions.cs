@@ -216,10 +216,49 @@ public static class LibExtensions
         else if (double.IsNegativeInfinity(value))
             writer.WriteByteSequence(Encoding.ASCII.GetBytes("-inf"));
         else
+            writer.WriteByteSequence(Encoding.ASCII.GetBytes(FormatFloat(value)));
+    }
+
+    /// <summary>
+    /// The text of a float as Ruby writes it: the shortest digits that give the value back, with the point put in
+    /// ("1.5", "12", "0.0001") unless the number of digits is smaller than the position of the point or the number is
+    /// smaller than 0.0001: then "1e100", "1.2e2", "1e-5".
+    /// </summary>
+    internal static string FormatFloat(double value)
+    {
+        if (value == 0)
+            return double.IsNegative(value) ? "-0" : "0";
+
+        // the shortest text that .NET gives for the value, brought to the digits and the position of the point
+        var text = Math.Abs(value).ToString("R", CultureInfo.InvariantCulture);
+        var exponent = 0;
+        var e = text.IndexOf('E');
+        if (e >= 0)
         {
-            var str = value.ToString(CultureInfo.InvariantCulture);
-            writer.WriteByteSequence(Encoding.ASCII.GetBytes(str));
+            exponent = int.Parse(text[(e + 1)..], CultureInfo.InvariantCulture);
+            text = text[..e];
         }
+
+        var dot = text.IndexOf('.');
+        var digits = text.Replace(".", "");
+        var point = (dot >= 0 ? dot : text.Length) + exponent;
+
+        var leading = digits.Length - digits.TrimStart('0').Length;
+        digits = digits.TrimStart('0').TrimEnd('0');
+        point -= leading;
+
+        var sign = value < 0 ? "-" : "";
+        if (point < -3 || point > digits.Length)
+        {
+            var mantissa = digits.Length > 1 ? digits[0] + "." + digits[1..] : digits;
+
+            return $"{sign}{mantissa}e{point - 1}";
+        }
+
+        if (point <= 0)
+            return $"{sign}0.{new string('0', -point)}{digits}";
+
+        return point == digits.Length ? sign + digits : $"{sign}{digits[..point]}.{digits[point..]}";
     }
 
     private const byte PositiveSign = 43;
