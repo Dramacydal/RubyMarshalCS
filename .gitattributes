@@ -1,1 +1,4 @@
 * text=auto eol=lf
+
+# Ruby Marshal files (tests): bytes, not text
+*.bin binary

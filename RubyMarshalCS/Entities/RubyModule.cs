@@ -5,7 +5,7 @@ namespace RubyMarshalCS.Entities;
 
 public class RubyModule : AbstractEntity
 {
-    public override RubyCodes Code => RubyCodes.Class;
+    public override RubyCodes Code => RubyCodes.Module;
 
     public byte[] Bytes { get; set; }
 

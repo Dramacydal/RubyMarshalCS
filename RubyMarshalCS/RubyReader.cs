@@ -106,7 +106,8 @@ public class RubyReader
     {
         var className = r_symbol(Plain(context));
 
-        var entity = r_object(context);
+        // the value inside a user class is the one that has the instance variables of the whole: it takes them or leaves them to the code that wrapped it
+        var entity = r_object(context, context.HasIVars);
         entity.UserClass = className;
 
         return entity;
@@ -172,11 +173,7 @@ public class RubyReader
 
         _serializationContext.RememberObject(entity);
 
-        if (context.HasIVars)
-        {
-            r_ivar(Plain(context), entity.InstanceVariables);
-            // context.HasIVars = false;
-        }
+        ReadOwnIVars(context, entity);
 
         return entity;
     }
@@ -240,11 +237,7 @@ public class RubyReader
 
         _serializationContext.RememberObject(entity);
 
-        if (context.HasIVars)
-        {
-            r_ivar(Plain(context), entity.InstanceVariables);
-            // context.HasIVars = false;
-        }
+        ReadOwnIVars(context, entity);
 
         return entity;
     }
@@ -304,11 +297,7 @@ public class RubyReader
 
         _serializationContext.RememberObject(entity);
 
-        if (context.HasIVars)
-        {
-            r_ivar(Plain(context), entity.InstanceVariables);
-            // context.HasIVars = false;
-        }
+        ReadOwnIVars(context, entity);
 
         return entity;
     }
@@ -340,11 +329,7 @@ public class RubyReader
 
         _serializationContext.RememberSymbol(entity);
 
-        if (context.HasIVars)
-        {
-            r_ivar(Plain(context), entity.InstanceVariables);
-            // context.HasIVars = false;
-        }
+        ReadOwnIVars(context, entity);
 
         return entity;
     }
@@ -354,32 +339,26 @@ public class RubyReader
         return context.WithSubContext(true, readContext =>
         {
             var entity = readContext.Action(readContext);
-            if (readContext.HasIVars && IsMarshalExtendable(entity))
-            {
-                context.WithSubContext(false, marshalReadContext =>
-                {
-                    r_ivar(marshalReadContext, entity.InstanceVariables);
 
-                    return entity;
-                });
-            }
+            // the value did not take its instance variables itself (an array, a hash, an object, a struct, anything inside a user class...)
+            ReadOwnIVars(readContext, entity, context);
 
             return entity;
         });
     }
 
-    private bool IsMarshalExtendable(AbstractEntity entity)
+    /// <summary>
+    /// Reads the instance variables that follow a value written with the "has instance variables" code, once: a value that reads
+    /// them itself (a string, a symbol, a regexp, a user defined one) does it as soon as it is read, for any other one the code
+    /// that wrapped it (<see cref="ReadIVar"/>) does it after it. <paramref name="owner"/> is the context of the wrapping code.
+    /// </summary>
+    private void ReadOwnIVars(ReaderContext context, AbstractEntity entity, ReaderContext? owner = null)
     {
-        switch (entity.Code)
-        {
-            case RubyCodes.Hash:
-            case RubyCodes.HashDef:
-            case RubyCodes.Object:
-            case RubyCodes.Struct:
-                return true;
-            default:
-                return false;
-        }
+        if (!context.HasIVars || context.IVarsRead)
+            return;
+
+        context.IVarsRead = true;
+        r_ivar(Plain(owner ?? context), entity.InstanceVariables);
     }
 
     private AbstractEntity ReadObject(ReaderContext context)

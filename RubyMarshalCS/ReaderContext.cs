@@ -5,7 +5,10 @@ namespace RubyMarshalCS;
 public class ReaderContext
 {
     public bool HasIVars { get; set; }
-    
+
+    /// <summary>The instance variables that follow the value are read already (by the value itself); they are read once.</summary>
+    public bool IVarsRead { get; set; }
+
     public Func<ReaderContext, AbstractEntity> Action { get; set; }
 
     private ReaderContext MakeSubContext(bool hasIVars)
